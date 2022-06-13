@@ -41,12 +41,12 @@ Cons:
 通常应用于键值数据（key-value Data）。在大多数编程语言中都能找到类似字典（dictionary）类型数据结构，通常用散列映射（hash map）或者哈希表（hash table）实现，具有 O(1)极高效的查找效率。
 
 ### **数据存储形式**
-  ![How to use hashing as a indexing technique to find records stored on disk](/assets/2022-04-20-INDEX/paint-self/Hash%20store.png)
+  ![How to use hashing as a indexing technique to find records stored on disk](/images/2022-04-20-INDEX/paint-self/Hash%20store.png)
 -   一个bucket对应一个disk block
 -   一个bucket包含n个（key，ptr）对
 
 ### **存储与查找**
-  ![Store & Find hash tables on disk](/assets/2022-04-20-INDEX/paint-self/Hash%20query.png)
+  ![Store & Find hash tables on disk](/images/2022-04-20-INDEX/paint-self/Hash%20query.png)
   **Steps**
   1. Compute the hash value h(W)
   2. Read the disk block(s) of bucket h(W) into memory
@@ -55,7 +55,7 @@ Cons:
 
 ### Hashing animation
 
-![Hashing](/assets/2022-04-20-INDEX/Hashing.gif)
+![Hashing](/images/2022-04-20-INDEX/Hashing.gif)
 
 ### 扩容
 当哈希表插入许多值时，将会产生许多溢出块（哈希冲突），此时将会产生更多的磁盘读取操作，降低性能。通过增加哈希表的容量是一种普遍有效的解决方法，但是成本很高，通常需要重新映射所有keys值至新哈希表。因而提出两种动态哈希方法，当哈希表的大小改变时，都只需要重新映射小部分已存在的keys。
@@ -73,14 +73,14 @@ Cons:
 
 ## 有序索引 - B-Tree and B+-tree
 根据公开资料，读取磁盘数据块通常在[0.01秒内](http://www.mathcs.emory.edu/~cheung/Courses/554/Syllabus/3-index/2-disks/structure3.html)，当计算数据库操作的延迟时，主要考虑磁盘随机访问次数。对于单一有序索引，使用二分查找算法，最糟糕的耗时为O(logn)；如果是多层有序索引，能够极大降低磁盘I/O次数，这时，索引文件的层数将成为关键，这取决于目标key在索引中的位置（ground level）；如果keys越多，索引可能需要更多的层数。此时，B+ tree能够根据索引数量动态判断索引的层数。
-![disk access time](/assets/2022-04-20-INDEX/disk%20access%20time.png)
+![disk access time](/images/2022-04-20-INDEX/disk%20access%20time.png)
 ### 索引层数与访问次数
-![access time](/assets/2022-04-20-INDEX/paint-self/B+tree.png)
+![access time](/images/2022-04-20-INDEX/paint-self/B+tree.png)
 -   图示三次磁盘访问即可查找到数据地址
 -   因此，为降低磁盘I/O次数，必须降低索引层数
 
 ### B+ Tree 的定义
-![B+ tree](/assets/2022-04-20-INDEX/paint-self/B+tree%20definition.png)
+![B+ tree](/images/2022-04-20-INDEX/paint-self/B+tree%20definition.png)
 
 -   动态多层级(3层可储存约4千万级数据)
 -   平衡树（每个叶子结点到根结点距离相同）
@@ -89,7 +89,7 @@ Cons:
 -   叶子节点通过指针按顺序连接，即包含一个指向下一邻近叶节点的指针。
 
 ### 叶子节点的结构
-![B+ tree leaf](/assets/2022-04-20-INDEX/paint-self/leaf%20node.png)
+![B+ tree leaf](/images/2022-04-20-INDEX/paint-self/leaf%20node.png)
 -   每个叶子节点(leaf node)存储在一个磁盘块(disk block)
 -   索引键即为想要快速查找的值
 -   叶子节点的指针（除最后的指针）为关联索引键记录数据库数据（database record）的地址
@@ -97,19 +97,19 @@ Cons:
 
 ### 查找B-tree
 - 起始在根结点使用**线性搜索**查询下一个节点
-![Lookup B-tree](/assets/2022-04-20-INDEX/paint-self/B%20tree%20query.png)
+![Lookup B-tree](/images/2022-04-20-INDEX/paint-self/B%20tree%20query.png)
 - 在**内部节点**中重复该步骤
 - 当到达**叶节点**时，线性搜索目标key
-![Lookup leaf node](/assets/2022-04-20-INDEX/paint-self/leaf%20node%20query.png)
+![Lookup leaf node](/images/2022-04-20-INDEX/paint-self/leaf%20node%20query.png)
 ### 插入新值
-![B+ tree](/assets/2022-04-20-INDEX/B+%20tree.gif)
+![B+ tree](/images/2022-04-20-INDEX/B+%20tree.gif)
 -   若叶节点有空余空间，查找对应叶节点，位移keys并插入目标key
 -   若叶节点空间已满，查找对应叶节点，插入目标key，并等半分裂为两个节点，在父节点插入两个新叶节点中的中值
 -   若叶节点与父节点空间已满，查找对应叶节点，插入目标key，等半分裂；父节点插入两个新叶节点的中值，分裂为两个节点；将中值移入上级父节点，重复此步骤
 B+树将数据库分解成固定大小的块或者页面，传统上大小为4KB，并且一次只能读取或写入一个页面。这种设计更接近于底层硬件，因为磁盘也被划分为固定大小的块。通常大多数数据库可以放入一个三到四层的B+树，极大降低对页面的查找次数，从而大幅减少磁盘随机访问I/O次数。
 
 而对于B树，能够在非叶节点存储数据，可导致查询**连续**数据时产生更多的随机I/O，而B+树的所有叶节点通过指针连接，能够减少顺序遍历时产生的额外随机I/O。
-![B tree](/assets/2022-04-20-INDEX/B%20tree.gif)
+![B tree](/images/2022-04-20-INDEX/B%20tree.gif)
 ### 优化
 -   当然可以同时构建B+树和哈希表的混合存储结构，来达到极致的性能，但也会带来更高的复杂度，在维护数据结构时，会导致更新和删除时需要操作更多份数据。
 -   由于索引对只适用于直接访问（从左到右扫描匹配），因此通常能压缩索引；经过前缀压缩，可以有效提高B+树扇出，降低树高，提高查找效率。
@@ -118,7 +118,7 @@ B+树将数据库分解成固定大小的块或者页面，传统上大小为4KB
 
 ## 多维索引
 无论是哈希索引还是有序索引都是一维索引，但是针对于类似**地理空间信息**等数据，亦或对于临近点、包含关系的查找等，一维索引有点难以应付，此时，便引入**多维索引**：建立在多维数据上的一种索引，支持有效多维查询，应用于**部分匹配查找(Partial Match)、范围查找(Range)、最近临近点(Nearest neighbor)查找、位置查找(Where-am-I, Ponit)**等。
-![Multi-dimensional indexes applications](/assets/2022-04-20-INDEX/paint-self/Multi-dimensional%20queries.png)
+![Multi-dimensional indexes applications](/images/2022-04-20-INDEX/paint-self/Multi-dimensional%20queries.png)
 ### 多维索引结构
 - Table-based
 	- Grid index files
@@ -131,7 +131,7 @@ B+树将数据库分解成固定大小的块或者页面，传统上大小为4KB
 ### Grid Index file
 > 构造成二维结构的索引
 
-![Grid Index](/assets/2022-04-20-INDEX/paint-self/grid%20index.png)
+![Grid Index](/images/2022-04-20-INDEX/paint-self/grid%20index.png)
 -   网格索引文件存储m、n大小的网格，存储网格桶(Buckets)，包含m_*n或(m+1)*_(n+1)个块指针
 -   很容易扩展至高维索引
 -   网格线有两种含义：
@@ -156,11 +156,11 @@ B+树将数据库分解成固定大小的块或者页面，传统上大小为4KB
 -   无法表示对象，故不能支持where-am-I queries
 -   数据分布不均匀时，将产生许多空白空间
 -   需要良好的算法支撑空间划分
-![Grid Lookup](/assets/2022-04-20-INDEX/paint-self/Grid%20query.png)
-![Partitioned Hashing occupancy](/assets/2022-04-20-INDEX/paint-self/Partitioned%20hashing%20occupancy%20rate.png)
+![Grid Lookup](/images/2022-04-20-INDEX/paint-self/Grid%20query.png)
+![Partitioned Hashing occupancy](/images/2022-04-20-INDEX/paint-self/Partitioned%20hashing%20occupancy%20rate.png)
 ### Partitioned Hashing
 通常使用的Hashing无法解决组合值「多维数据」问题；针对n个组合key，Partitioned Hashing 使用n个哈希函数，每个函数对应一个子key，哈希值即是这些单独哈希函数值的**连接组合**。
-![Partitioned Hashing](/assets/2022-04-20-INDEX/paint-self/partitioned%20hashing.png)
+![Partitioned Hashing](/images/2022-04-20-INDEX/paint-self/partitioned%20hashing.png)
 
 #### **多维查找情景**
 -   Partial Match queries
@@ -183,13 +183,13 @@ B+树将数据库分解成固定大小的块或者页面，传统上大小为4KB
 扩展使用范围搜索「Range queries」查找最邻近点。
 -   Where-am-I
 不适用
-![Multiple-index queries](/assets/2022-04-20-INDEX/paint-self/Multi-dimensional%20queries.png)
+![Multiple-index queries](/images/2022-04-20-INDEX/paint-self/Multi-dimensional%20queries.png)
 
 ### kd-tree
 - kd-tree 是二叉搜索树（BST）的一种
 - 在不同层级使用的搜索key属于不同的维度
 - 不同层级上的维度会包围起来
-![kd-tree](/assets/2022-04-20-INDEX/paint-self/kd-tree.png)
+![kd-tree](/images/2022-04-20-INDEX/paint-self/kd-tree.png)
 #### 查找
 类似BST
 #### 插入
@@ -203,13 +203,13 @@ B+树将数据库分解成固定大小的块或者页面，传统上大小为4KB
 不适用
 - Where-am-I
 不适用
-![kd tree](/assets/2022-04-20-INDEX/paint-self/kd-tree%20query.png)
-![kd-tree](/assets/2022-04-20-INDEX/kd-tree.gif)
+![kd tree](/images/2022-04-20-INDEX/paint-self/kd-tree%20query.png)
+![kd-tree](/images/2022-04-20-INDEX/kd-tree.gif)
 ### Quad-tree
 一种每个维度对半划分的索引结构
-![Quad-tree](/assets/2022-04-20-INDEX/paint-self/Quad-tree.png)
+![Quad-tree](/images/2022-04-20-INDEX/paint-self/Quad-tree.png)
 简化的kd-tree，多维搜索类似kd-tree
-![quad2kd](/assets/2022-04-20-INDEX/paint-self/quad-tree2kd-tree.png)
+![quad2kd](/images/2022-04-20-INDEX/paint-self/quad-tree2kd-tree.png)
 ### R-tree
 从B-tree衍生的一种使用边界盒（bounding boxes）作为搜索key的索引结构。
 #### 查找
@@ -228,7 +228,7 @@ B+树将数据库分解成固定大小的块或者页面，传统上大小为4KB
 5.  若无空间，拆分区域节点
     1.  类似B-tree
 
-![R-tree](/assets/2022-04-20-INDEX/paint-self/r-tree.png)
+![R-tree](/images/2022-04-20-INDEX/paint-self/r-tree.png)
 
 #### 多维查找
 非常适用于Partial Match queries, Range queries, Nearest neighbor queries, Where-am-I queries 四种情景，是多维索引一种高度理想结构。
