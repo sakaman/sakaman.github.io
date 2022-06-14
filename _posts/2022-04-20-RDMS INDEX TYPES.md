@@ -6,6 +6,8 @@ categories:
   - Database
 ---
 
+对CS 554中索引类型的一些总结
+
 # 索引是什么？
 > On the most fundamental level, a database needs to do things: when you give it some data, it should store the data,and when you ask it again later, it should give the data back to you.                                                          -- Designing Data-Intensive Applications
 

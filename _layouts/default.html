@@ -1,6 +1,10 @@
 <!DOCTYPE html>
-<html>
+<html lang="{{site.lang | default: "en-US" }}">
   <head>
+    <!-- General meta -->
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
     <title>{% if page.title %}{{ page.title }} – {% endif %}{{ site.name }} – {{ site.description }}</title>
 
     {% include meta.html %}
@@ -28,6 +32,7 @@
 
           <nav>
             <a href="{{ site.baseurl }}/">Blog</a>
+            <a href="{{ site.baseurl }}/categories">Categories</a>
             <a href="{{ site.baseurl }}/about">About</a>
           </nav>
         </header>
