@@ -10,7 +10,17 @@ description: Normal people from Zhai
 
 # URL of your avatar or profile pic (you could use your GitHub profile pic)
 # avatar: https://raw.githubusercontent.com/sakaman/sakaman.github.io/master/images/logo@1024px.png
-avatar: /images/logo@1024px.png
+avatar: /assets/logo@1024px.png
+
+favicons: # Favicons are also used in the manifest file. Syntax is 'size: path'
+  16: '/assets/logo@16px.png'
+  32: '/assets/logo@32px.png'
+  96: '/assets/logo@96px.png'
+  120: '/assets/logo@120px.png'
+  144: '/assets/logo@144px.png'
+  180: '/assets/logo@180px.png'
+  512: '/assets/logo@512px.png'
+  1024: '/assets/logo@1024px.png'
 
 #
 # Flags below are optional
