@@ -244,6 +244,7 @@ nav {
 .posts > .post {
   padding-bottom: 2em;
   border-bottom: 1px solid $lightGray;
+  overflow: auto;
 }
 
 .posts > .post:last-child {
@@ -276,6 +277,8 @@ nav {
   border-top: 1px solid #ddd;
   border-bottom: 1px solid #ddd;
   background-color: $lightGray;
+  position: relative;
+  clear: both;
 }
 
 footer {
