@@ -6,7 +6,7 @@ sitemap: false
 {
   "lang": "{{ site.lang | default: "en-US" }}",
   "name": "{{ site.title }}",
-  "short_name": "{{ site.short_name | default: site.title | replace: ' ', '' }}",
+  "short_name": "{{ site.name | default: site.title | replace: ' ', '' }}",
   "theme_color": "{{ site.manifest.theme_color | default: '#24292e' }}",
   "background_color": "{{ site.manifest.background_color | default: '#ffffff' }}",
   {% if site.favicons -%}
