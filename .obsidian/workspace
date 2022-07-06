@@ -9,7 +9,7 @@
         "state": {
           "type": "markdown",
           "state": {
-            "file": "_posts/2022-06-19-写文章的方式.md",
+            "file": "_posts/2022-06-28-工具资源.md",
             "mode": "source"
           }
         }
@@ -68,7 +68,7 @@
             "state": {
               "type": "backlink",
               "state": {
-                "file": "_posts/2022-06-19-写文章的方式.md",
+                "file": "_posts/2022-06-28-工具资源.md",
                 "collapseAll": false,
                 "extraContext": false,
                 "sortOrder": "alphabetical",
@@ -88,6 +88,7 @@
   },
   "active": "eabe8fc097d2d16b",
   "lastOpenFiles": [
+    "_posts/2022-06-28-工具资源.md",
     "_posts/2022-06-19-写文章的方式.md",
     "_posts/2022-06-19-演讲的方式.md",
     "_posts/2022-04-20-RDMS INDEX TYPES.md",
