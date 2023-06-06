@@ -10,7 +10,8 @@
           "type": "markdown",
           "state": {
             "file": "_posts/2022-06-28-工具资源.md",
-            "mode": "source"
+            "mode": "source",
+            "source": false
           }
         }
       }

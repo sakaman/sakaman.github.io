@@ -1,3 +1,5 @@
 {
-  "theme": "system"
+  "theme": "system",
+  "accentColor": "",
+  "translucency": true
 }
