@@ -6,7 +6,7 @@ categories:
 published: true
 ---
 
-> Best practice prompts for chatGPT
+Best practice prompts for chatGPT
 
 ## Strategy: Write clear instructions
 
@@ -76,3 +76,8 @@ A model can leverage external sources of information if provided as part of its 
 
 ### Use code execution to perform more accurate calculations or call external APIs
 
+## Test changes systematically
+
+### Evaluate model outputs with reference to gold-standard answers
+
+Suppose it is known that the correct answer to a question should make reference to a specific set of known facts. Then we can use a model query to count how many of the required facts are included in the answer.
