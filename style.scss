@@ -19,13 +19,23 @@ html {
 
 body {
 	background: $white;
-  font: 16px/1.4 $helvetica;
-  color: $darkGray;
+  // font: 16px/1.4 $helvetica;
+  font-family: var(--font_family_body, var(--font_family_body_preset, 'Arvo', serif, -apple-system, BlinkMacSystemFont, Helvetica, 'Spectral', 'Segoe UI', Roboto, Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol'));
+  font-weight: var(--font_weight_body_preset, 400);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: antialiased;
+  -webkit-appearance: optimizelegibility;
+  -moz-appearance: optimizelegibility;
+  appearance: optimizelegibility;
+  font-size: calc(20px + var(--font_size_body_offset, 0px));
+  color: var(--color-primary);
+  cursor: default;
+  // color: $darkGray;
 }
 
 .container {
   margin: 0 auto;
-  max-width: 960px;
+  max-width: 740px;
   padding: 0 10px;
   width: 100%;
 }
