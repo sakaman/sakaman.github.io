@@ -20,8 +20,9 @@ html {
 body {
 	background: $white;
   // font: 16px/1.4 $helvetica;
-  font-family: var(--font_family_body, var(--font_family_body_preset, 'Arvo', serif, -apple-system, BlinkMacSystemFont, Helvetica, 'Spectral', 'Segoe UI', Roboto, Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol'));
+  font-family: var(--font_family_body, var(--font_family_body_preset, helvetica, serif, -apple-system, BlinkMacSystemFont, Helvetica, 'Spectral', 'Segoe UI', Roboto, Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol'));
   font-weight: var(--font_weight_body_preset, 400);
+  line-height: 1.6;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: antialiased;
   -webkit-appearance: optimizelegibility;
