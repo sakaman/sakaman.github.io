@@ -248,6 +248,21 @@ nav {
   }
 }
 
+.section-nav {
+  background-color: #fff;
+  margin: 5px 0;
+  padding: 10px 30px;
+  border: 1px solid #e8e8e8;
+  border-radius: 3px;
+}
+
+.toc {
+  width: auto;
+  position: sticky;
+  // margin-left: -200px;
+  // top: 50%;
+  display: inline;
+}
 //
 // .main
 //
@@ -271,6 +286,8 @@ nav {
     color: $gray;
     font-size: 22px;
     font-style: italic;
+    // display: flex;
+    // flex-direction: row;
   }
 
   .comments {

@@ -89,19 +89,20 @@ sass:
   # style: :compressed # You might prefer to minify using :compressed
 
 # Use the following plug-ins
-gems:
+# gems:
+
+
+# theme: jekyll-theme-so-simple
+# remote_theme: "mmistakes/so-simple-theme@3.2.0
+
+plugins:
   - jekyll-sitemap # Create a sitemap using the official Jekyll sitemap gem
   - jekyll-feed # Create an Atom feed using the official Jekyll feed gem
   - jemoji
   - jekyll-paginate
   - kramdown-syntax-coderay
   - github-pages
-
-# theme: jekyll-theme-so-simple
-# remote_theme: "mmistakes/so-simple-theme@3.2.0
-
-plugins:
-  - jekyll-paginate
+  - jekyll-toc
 
 paginate: 10
 paginate_path: blog/page:num
@@ -113,3 +114,20 @@ exclude:
   - LICENSE
   - README.md
   - CNAME
+
+toc:
+  min_level: 1
+  max_level: 6
+  ordered_list: false
+  no_toc_section_class: no_toc_section
+  list_id: toc
+  list_class: section-nav
+  sublist_class: ''
+  item_class: toc-entry
+  item_prefix: toc-
+
+defaults:
+  - scope:
+      path: ""
+    values:
+      toc: true
