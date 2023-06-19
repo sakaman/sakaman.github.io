@@ -109,6 +109,7 @@ plugins:
   - kramdown-syntax-coderay
   - github-pages
   - jekyll-toc
+  - jekyll-tagging-related_posts
 
 paginate: 10
 paginate_path: blog/page:num
@@ -137,3 +138,69 @@ defaults:
       path: ""
     values:
       toc: true
+
+# rawposts:
+#   name: David Dong
+#   tagline: Java/C/C#/Python
+#   date_format: "%b %-d, %Y"
+#   sitemap: true # set to true to generate sitemap.xml content
+#   highlighter: rouge
+#   syntax: monokai.sublime  # stylesheet, 
+#                            # options: base16, base16.dark, base16.light, base16.monokai, 
+#                            # base16.monokai.dark, base16.monokai.light, base16.solarized, base16.solarized.dark, base16.solarized.light, 
+#                            # bw, colorful, github, gruvbox, gruvbox.dark, gruvbox.light, igorpro, magritte, molokai, monokai, monokai.sublime, 
+#                            # pastie, thankful_eyes, tulip
+#  # markdown: kramdown
+#   search: true # set to true to enable searchbar
+#   dark_mode: true # set to true to add dark mode toggle
+#   condensed_mobile:
+#     #- home
+#     - page
+#     - post
+#     - extension
+    
+#   reading_time: true  # set to true to add reading time statistics
+#   archives: true  # set to true to generate archives page 
+#   categories: true  # set to true to generate categories page
+#   related_posts: true #  set to true to enable related posts
+#   gittalk: true  # set to true to add gittalk 
+#   navigation: true    # set to to add page navigation bar
+#   show_statistics: true  #set to true to show statistics of site visitors number
+#   rss: true  #set to true to add rss 
+#   source_code: true  #set to true to add link to source code
+#   analytics_id: G-3MXGF3F8QN  #use Google analytics
+#   share_media: true  # generate social share links in footer
+#   show_category_box: true    # display post categories box in the index page
+#   social_links:
+#     wechat: 
+#     github:  gangdong
+#     linkedIn: daviddong
+#     mail: daviddong
+#     rss: rss
+#     # dribbble: jekyll
+#     # facebook: jekyll
+#     # flickr:   jekyll
+#     # instagram: jekyll
+#     # linkedin: jekyll
+#     # pinterest: jekyll
+#     # youtube: jekyll
+#     # youtube_channel: UC8CXR0-3I70i1tfPg1PAE1g
+#     # youtube_channel_name: CloudCannon
+#     # telegram: jekyll
+#     # googleplus: +jekyll
+#     # microdotblog: jekyll
+
+#     # Mastodon instances
+#     # mastodon:
+#     # - username: jekyll
+#     #   instance: example.com
+#     # - username: jekyll2
+#     #   instance: example.com
+
+# # If you want to link only specific pages in your header, uncomment
+# # this and add the path to the pages in order as they should show up
+# #header_pages:
+# # - about.md
+
+# # Build settings
+# theme: rawposts
