@@ -28,7 +28,7 @@ body {
   -webkit-appearance: optimizelegibility;
   -moz-appearance: optimizelegibility;
   appearance: optimizelegibility;
-  font-size: calc(20px + var(--font_size_body_offset, 0px));
+  font-size: calc(18px + var(--font_size_body_offset, 0px));
   color: var(--color-primary);
   cursor: default;
   // color: $darkGray;
@@ -56,14 +56,14 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 h1 {
-  font-size: 30px;
+  font-size: 24px;
   a {
     color: inherit;
   }
 }
 
 h2 {
-  font-size: 24px;
+  font-size: 22px;
 }
 
 h3 {
