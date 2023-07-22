@@ -3,7 +3,7 @@ name: Jekyll site CI
 on:
   push:
     branches: [ "master" ]
-
+    
 jobs:
   build_and_deploy:
 
@@ -14,41 +14,13 @@ jobs:
     - uses: ruby/setup-ruby@v1
       with: 
         ruby-version: '2.7'
-    - uses: actions/cache@v3
-      with:
-        path: vendor/bundle
-        key: ${{ runner.os }}-gems-${{ hashFiles('**/Gemfile.lock') }}
-        restore-keys: |
-          ${{ runner.os }}-gems-
-
+        
     - run: bundle install && bundle exec jekyll build
 
     - name: deploy
-      uses: actions/deploy-pages@v2
+      uses: peaceiris/actions-gh-pages@v3.9.3
       with:
         github_token: ${{ secrets.GITHUB_TOKEN }}
-        publish_branch: 'gh-pages'
+        publish_branch: gh-pages
         publish_dir: _site
         force_orphan: true
-
-    # - name: Jekyll Deploy Action
-    #   # You may pin to the exact commit or the version.
-    #   # uses: jeffreytse/jekyll-deploy-action@2fae5f4525f7a73a2820bb417b54a7f4da2cc68d
-    #   uses: jeffreytse/jekyll-deploy-action@v0.5.0
-    #   with:
-    #     # The deploy provider
-    #     provider: 'github'
-    #     # The deploy token
-    #     token: ${{ secrets.GITHUB_TOKEN }}
-    #     # The deploy repository
-    #     repository: ''
-    #     # The deploy branch
-    #     branch: 'gh-pages'
-    #     # The Jekyll website source directory
-    #     jekyll_src: './'
-    #     # The Jekyll website config files
-    #     jekyll_cfg: '_config.yml'
-    #     # The Jekyll website baseurl
-    #     jekyll_baseurl: ''
-    #     # The pre-build commands
-    #     pre_build_commands: ''
