@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en-US">
+  <head>
+    <!-- General meta -->
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <title>Search – Desnowy – Normal people from Zhai</title>
+
+        <meta charset="utf-8" />
+    <meta content='text/html; charset=utf-8' http-equiv='Content-Type'>
+    <meta http-equiv='X-UA-Compatible' content='IE=edge'>
+    <meta name='viewport' content='width=device-width, initial-scale=1.0, maximum-scale=1.0'>
+
+    
+    <meta name="description" content="Search for a page or post you're looking for" />
+    <meta property="og:description" content="Search for a page or post you're looking for" />
+    
+    <meta name="author" content="Desnowy" />
+
+    
+    <meta property="og:title" content="Search" />
+    <meta property="twitter:title" content="Search" />
+    
+    
+  
+    <link rel="icon" type="image/png" href="/assets/logo@16px.png" sizes="16x16">
+    <link rel="apple-touch-icon" sizes="16x16" href="/assets/logo@16px.png">
+  
+    <link rel="icon" type="image/png" href="/assets/logo@32px.png" sizes="32x32">
+    <link rel="apple-touch-icon" sizes="32x32" href="/assets/logo@32px.png">
+  
+    <link rel="icon" type="image/png" href="/assets/logo@96px.png" sizes="96x96">
+    <link rel="apple-touch-icon" sizes="96x96" href="/assets/logo@96px.png">
+  
+    <link rel="icon" type="image/png" href="/assets/logo@120px.png" sizes="120x120">
+    <link rel="apple-touch-icon" sizes="120x120" href="/assets/logo@120px.png">
+  
+    <link rel="icon" type="image/png" href="/assets/logo@144px.png" sizes="144x144">
+    <link rel="apple-touch-icon" sizes="144x144" href="/assets/logo@144px.png">
+  
+    <link rel="icon" type="image/png" href="/assets/logo@180px.png" sizes="180x180">
+    <link rel="apple-touch-icon" sizes="180x180" href="/assets/logo@180px.png">
+  
+    <link rel="icon" type="image/png" href="/assets/logo@512px.png" sizes="512x512">
+    <link rel="apple-touch-icon" sizes="512x512" href="/assets/logo@512px.png">
+  
+    <link rel="icon" type="image/png" href="/assets/logo@1024px.png" sizes="1024x1024">
+    <link rel="apple-touch-icon" sizes="1024x1024" href="/assets/logo@1024px.png">
+  
+
+<link rel="shortcut icon" href="">
+
+
+    <!--[if lt IE 9]>
+      <script src="http://html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+
+    <link rel="stylesheet" type="text/css" href="/style.css" />
+    <link rel="alternate" type="application/rss+xml" title="Desnowy - Normal people from Zhai" href="/feed.xml" />
+    <link rel="manifest" href="/manifest.json">
+
+    <!-- Created with Jekyll Now - http://github.com/barryclark/jekyll-now -->
+  </head>
+
+  <body>
+    <div class="wrapper-masthead">
+      <div class="container">
+        <header class="masthead clearfix">
+          <a href="/" class="site-avatar"><img src="/assets/logo@1024px.png" /></a>
+
+          <div class="site-info">
+            <h1 class="site-name"><a href="/">Desnowy</a></h1>
+            <p class="site-description">Normal people from Zhai</p>
+          </div>
+
+          <nav>
+            <a href="/">Blog</a>
+            <a href="/categories">Categories</a>
+            <a href="/search">Search</a>
+            <a href="/about">About</a>
+          </nav>
+        </header>
+      </div>
+    </div>
+
+    <div id="main" role="main" class="container">
+      <div class="form  form--search">
+  <form id="contact-form" action="">
+    <label class="label" for="search">Search term:</label>
+    <input class="input" id="search" type="search" name="search" placeholder="e.g. About us" autocomplete="off" />
+
+    <ul class="list  list--results" id="list">
+        <!-- results go here -->
+    </ul>
+  </form>
+</div>
+
+<script type="text/javascript" src="/assets/scripts/fetch.js"></script>
+
+<script type="text/javascript">
+  const endpoint = '/assets/search.json';
+
+  const pages = [];
+
+  fetch(endpoint)
+    .then(blob => blob.json())
+    .then(data => pages.push(...data))
+
+  function findResults(termToMatch, pages) {
+    return pages.filter(item => {
+      const regex = new RegExp(termToMatch, 'gi');
+      return item.title.match(regex) || item.content.match(regex);
+    });
+  }
+
+  function displayResults() {
+    const resultsArray = findResults(this.value, pages);
+    const html = resultsArray.map(item => {
+      return `
+        <li class="item  item--result">
+          <article class="article  typeset">
+            <h4><a href="${item.url}">${item.title}</a></h4>
+            <p>${item.excerpt}</p>
+          </article>
+        </li>`;
+    }).join('');
+    if ((resultsArray.length == 0) || (this.value == '')) {
+      resultsList.innerHTML = `<p>Sorry, nothing was found</p>`;
+    } else {
+      resultsList.innerHTML = html;
+    }
+  }
+
+  const field = document.querySelector('#search');
+  const resultsList = document.querySelector('#list');
+
+  field.addEventListener('keyup', displayResults);
+
+  field.addEventListener('keydown', function(event) {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+    }
+  });
+</script>
+
+<noscript>Please enable JavaScript to use the search form.</noscript>
+
+
+    </div>
+
+    <div class="wrapper-footer">
+      <div class="container">
+        <footer class="footer">
+          
+
+
+
+<a href="https://github.com/sakaman/sakaman.github.io"><i class="svg-icon github"></i></a>
+
+
+
+
+
+
+
+
+          <script>
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('/sw.js')
+        })
+    }
+</script>
+        </footer>
+      </div>
+    </div>
+
+    
+
+  </body>
+</html>

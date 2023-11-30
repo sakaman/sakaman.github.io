@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en-US">
+  <head>
+    <!-- General meta -->
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <title>Prompts for ChatGPT – Desnowy – Normal people from Zhai</title>
+
+        <meta charset="utf-8" />
+    <meta content='text/html; charset=utf-8' http-equiv='Content-Type'>
+    <meta http-equiv='X-UA-Compatible' content='IE=edge'>
+    <meta name='viewport' content='width=device-width, initial-scale=1.0, maximum-scale=1.0'>
+
+    
+    <meta name="description" content="Best practice prompts for chatGPT
+
+" />
+    <meta property="og:description" content="Best practice prompts for chatGPT
+
+" />
+    
+    <meta name="author" content="Desnowy" />
+
+    
+    <meta property="og:title" content="Prompts for ChatGPT" />
+    <meta property="twitter:title" content="Prompts for ChatGPT" />
+    
+    
+  
+    <link rel="icon" type="image/png" href="/assets/logo@16px.png" sizes="16x16">
+    <link rel="apple-touch-icon" sizes="16x16" href="/assets/logo@16px.png">
+  
+    <link rel="icon" type="image/png" href="/assets/logo@32px.png" sizes="32x32">
+    <link rel="apple-touch-icon" sizes="32x32" href="/assets/logo@32px.png">
+  
+    <link rel="icon" type="image/png" href="/assets/logo@96px.png" sizes="96x96">
+    <link rel="apple-touch-icon" sizes="96x96" href="/assets/logo@96px.png">
+  
+    <link rel="icon" type="image/png" href="/assets/logo@120px.png" sizes="120x120">
+    <link rel="apple-touch-icon" sizes="120x120" href="/assets/logo@120px.png">
+  
+    <link rel="icon" type="image/png" href="/assets/logo@144px.png" sizes="144x144">
+    <link rel="apple-touch-icon" sizes="144x144" href="/assets/logo@144px.png">
+  
+    <link rel="icon" type="image/png" href="/assets/logo@180px.png" sizes="180x180">
+    <link rel="apple-touch-icon" sizes="180x180" href="/assets/logo@180px.png">
+  
+    <link rel="icon" type="image/png" href="/assets/logo@512px.png" sizes="512x512">
+    <link rel="apple-touch-icon" sizes="512x512" href="/assets/logo@512px.png">
+  
+    <link rel="icon" type="image/png" href="/assets/logo@1024px.png" sizes="1024x1024">
+    <link rel="apple-touch-icon" sizes="1024x1024" href="/assets/logo@1024px.png">
+  
+
+<link rel="shortcut icon" href="">
+
+
+    <!--[if lt IE 9]>
+      <script src="http://html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+
+    <link rel="stylesheet" type="text/css" href="/style.css" />
+    <link rel="alternate" type="application/rss+xml" title="Desnowy - Normal people from Zhai" href="/feed.xml" />
+    <link rel="manifest" href="/manifest.json">
+
+    <!-- Created with Jekyll Now - http://github.com/barryclark/jekyll-now -->
+  </head>
+
+  <body>
+    <div class="wrapper-masthead">
+      <div class="container">
+        <header class="masthead clearfix">
+          <a href="/" class="site-avatar"><img src="/assets/logo@1024px.png" /></a>
+
+          <div class="site-info">
+            <h1 class="site-name"><a href="/">Desnowy</a></h1>
+            <p class="site-description">Normal people from Zhai</p>
+          </div>
+
+          <nav>
+            <a href="/">Blog</a>
+            <a href="/categories">Categories</a>
+            <a href="/search">Search</a>
+            <a href="/about">About</a>
+          </nav>
+        </header>
+      </div>
+    </div>
+
+    <div id="main" role="main" class="container">
+      <main class="main  container">
+  
+  <div class="toc">
+    <h2>Table of Contents</h2>
+    <ul id="toc" class="section-nav">
+<li class="toc-entry toc-h2"><a href="#strategy-write-clear-instructions">Strategy: Write clear instructions</a>
+<ul>
+<li class="toc-entry toc-h3"><a href="#include-details-in-your-query-to-get-more-relevant-answers">Include details in your query to get more relevant answers</a></li>
+<li class="toc-entry toc-h3"><a href="#ask-the-model-to-adopt-a-persona">Ask the model to adopt a persona</a></li>
+<li class="toc-entry toc-h3"><a href="#use-delimiters-to-clearly-indicate-distinct-parts-of-the-input">Use delimiters to clearly indicate distinct parts of the input</a></li>
+<li class="toc-entry toc-h3"><a href="#specify-the-steps-required-to-complete-a-task">Specify the steps required to complete a task</a></li>
+<li class="toc-entry toc-h3"><a href="#provide-examples">Provide examples</a></li>
+<li class="toc-entry toc-h3"><a href="#specify-the-desired-length-of-the-output">Specify the desired length of the output</a></li>
+</ul>
+</li>
+<li class="toc-entry toc-h2"><a href="#provide-reference-text">Provide reference text</a>
+<ul>
+<li class="toc-entry toc-h3"><a href="#instruct-the-model-to-answer-using-a-reference-text">Instruct the model to answer using a reference text</a></li>
+<li class="toc-entry toc-h3"><a href="#instruct-the-model--to-answer-with-citations-from-a-reference-text">Instruct the model  to answer with citations from a reference text</a></li>
+</ul>
+</li>
+<li class="toc-entry toc-h2"><a href="#split-complex-tasks-into-simpler-subtasks">Split complex tasks into simpler subtasks</a>
+<ul>
+<li class="toc-entry toc-h3"><a href="#use-intent-classification-to-identify-the-most-relevant-instructions-for-a-user-query">Use intent classification to identify the most relevant instructions for a user query</a></li>
+<li class="toc-entry toc-h3"><a href="#for-dialogue-applications-that-require-very-long-conversations-summarize-or-filter-previous-dialogue">For dialogue applications that require very long conversations, summarize or filter previous dialogue</a></li>
+<li class="toc-entry toc-h3"><a href="#summarize-long-documents-piecewise-and-construct-a-full-summary-recursively">Summarize long documents piecewise and construct a full summary recursively</a></li>
+</ul>
+</li>
+<li class="toc-entry toc-h2"><a href="#give-gpts-time-to-think">Give GPTs time to “think”</a>
+<ul>
+<li class="toc-entry toc-h3"><a href="#instruct-the-model-to-work-out-its-own-solution-before-rushing-to-a-conclusion">Instruct the model to work out its own solution before rushing to a conclusion</a></li>
+<li class="toc-entry toc-h3"><a href="#use-inner-monologue-or-a-sequence-of-queries-to-hide-the-models-reasoning-process">Use inner monologue or a sequence of queries to hide the model’s reasoning process</a></li>
+<li class="toc-entry toc-h3"><a href="#ask-the-model-if-it-missed-anything-on-previous-passes">Ask the model if it missed anything on previous passes</a></li>
+</ul>
+</li>
+<li class="toc-entry toc-h2"><a href="#use-externals-tools">Use externals tools</a>
+<ul>
+<li class="toc-entry toc-h3"><a href="#use-embeddings-based-search-to-implement-efficient-knowledge-retrieval">Use embeddings-based search to implement efficient knowledge retrieval</a></li>
+<li class="toc-entry toc-h3"><a href="#use-code-execution-to-perform-more-accurate-calculations-or-call-external-apis">Use code execution to perform more accurate calculations or call external APIs</a></li>
+</ul>
+</li>
+<li class="toc-entry toc-h2"><a href="#test-changes-systematically">Test changes systematically</a>
+<ul>
+<li class="toc-entry toc-h3"><a href="#evaluate-model-outputs-with-reference-to-gold-standard-answers">Evaluate model outputs with reference to gold-standard answers</a></li>
+</ul>
+</li>
+</ul>
+  </div>      
+  
+  <article class="post">
+    <h1>Prompts for ChatGPT</h1>
+    
+
+<small class="small  post-meta">
+  
+  
+    
+      <span class="label  label--category"><a href="/categories/#skills">Skills</a></span>
+    
+  &nbsp;&middot;&nbsp;<time datetime="2023-06-06T00:00:00+00:00" class="time">06 Jun 2023</time>
+</small>
+
+    
+    <div class="entry">
+      <p>Best practice prompts for chatGPT</p>
+
+<h2 id="strategy-write-clear-instructions">Strategy: Write clear instructions</h2>
+
+<h3 id="include-details-in-your-query-to-get-more-relevant-answers">Include details in your query to get more relevant answers</h3>
+
+<p>In order to get a highly relevant response, make sure that requests provide any important details or context. Otherwise you are leaving it up to the model to guess what you mean.</p>
+
+<h3 id="ask-the-model-to-adopt-a-persona">Ask the model to adopt a persona</h3>
+
+<p>The system message can be used to specify the persona used by the model in its replies.</p>
+
+<h3 id="use-delimiters-to-clearly-indicate-distinct-parts-of-the-input">Use delimiters to clearly indicate distinct parts of the input</h3>
+
+<p>Delimiters like triple quotation marks, XML tags, section titles, etc. can help demarcate sections of text to be treated differently.</p>
+
+<h3 id="specify-the-steps-required-to-complete-a-task">Specify the steps required to complete a task</h3>
+
+<p>Some tasks are best specified as a sequence of steps. Writing the steps out explicitly can make it easier for the model to follow them.</p>
+
+<h3 id="provide-examples">Provide examples</h3>
+
+<p>Providing general instructions that apply to all examples is generally more efficient than demonstrating all permutations of a task by example, but in some cases providing examples may be easier. For example, if you intended for the model to copy a particular style of responding to user queries which is difficult to describe explicitly. This is known as “few-shot” prompting.</p>
+
+<h3 id="specify-the-desired-length-of-the-output">Specify the desired length of the output</h3>
+
+<p>You can ask the model to produce outputs that are of a given target length. The targeted output length can be specified in terms of the count of words, sentences, paragraphs, bullet points, etc. Note however that instructing the model to generate a specific number of words does not work with high precision. The model can more reliably generate outputs with a specific number of paragraphs or bullet points.</p>
+
+<h2 id="provide-reference-text">Provide reference text</h2>
+
+<h3 id="instruct-the-model-to-answer-using-a-reference-text">Instruct the model to answer using a reference text</h3>
+
+<p>If we can provide a model with trusted information that is relevant to the current query, then we can instruct the model to use the provided information to compose its answer.</p>
+
+<h3 id="instruct-the-model--to-answer-with-citations-from-a-reference-text">Instruct the model  to answer with citations from a reference text</h3>
+
+<p>If the input has been supplemented with relevant knowledge, it’s straightforward to request that the model add citations to its answers by referencing passages from provided documents. Note that citations in the output can then be verified programmatically by string matching within the provided documents.</p>
+
+<h2 id="split-complex-tasks-into-simpler-subtasks">Split complex tasks into simpler subtasks</h2>
+
+<h3 id="use-intent-classification-to-identify-the-most-relevant-instructions-for-a-user-query">Use intent classification to identify the most relevant instructions for a user query</h3>
+
+<p>For tasks in which lots of independent sets of instructions are needed to handle different cases, it can be beneficial to first classify the type of query and to use that classification to determine which instructions are needed. This can be achieved by defining fixed categories and hardcoding instructions that are relevant for handling tasks in a given category. This process can also be applied recursively to decompose a task into a sequence of stages.</p>
+
+<h3 id="for-dialogue-applications-that-require-very-long-conversations-summarize-or-filter-previous-dialogue">For dialogue applications that require very long conversations, summarize or filter previous dialogue</h3>
+
+<h3 id="summarize-long-documents-piecewise-and-construct-a-full-summary-recursively">Summarize long documents piecewise and construct a full summary recursively</h3>
+
+<h2 id="give-gpts-time-to-think">Give GPTs time to “think”</h2>
+
+<h3 id="instruct-the-model-to-work-out-its-own-solution-before-rushing-to-a-conclusion">Instruct the model to work out its own solution before rushing to a conclusion</h3>
+
+<p>Sometimes we get better results when we explicitly instruct the model to reason from first principles before coming to a conclusion.</p>
+
+<h3 id="use-inner-monologue-or-a-sequence-of-queries-to-hide-the-models-reasoning-process">Use inner monologue or a sequence of queries to hide the model’s reasoning process</h3>
+
+<p>Inner monologue is a tactic that can be used to mitigate this. The idea of inner monologue is to instruct the model to put parts of the output that are meant to be hidden from the user into a structured format that makes parsing them easy. Then before presenting the output to the user, the output is parsed and only part of the output is made visible.</p>
+
+<h3 id="ask-the-model-if-it-missed-anything-on-previous-passes">Ask the model if it missed anything on previous passes</h3>
+
+<h2 id="use-externals-tools">Use externals tools</h2>
+
+<p>Compensate for the weaknesses of GPTs by feeding them the outputs of other tools.</p>
+
+<h3 id="use-embeddings-based-search-to-implement-efficient-knowledge-retrieval">Use embeddings-based search to implement efficient knowledge retrieval</h3>
+
+<p>A model can leverage external sources of information if provided as part of its input. This can help the model to generate more informed and up-to-date responses. Embeddings can be used to implement efficient knowledge retrieval, so that relevant information can be added to the model input dynamically at run-time.</p>
+
+<h3 id="use-code-execution-to-perform-more-accurate-calculations-or-call-external-apis">Use code execution to perform more accurate calculations or call external APIs</h3>
+
+<h2 id="test-changes-systematically">Test changes systematically</h2>
+
+<h3 id="evaluate-model-outputs-with-reference-to-gold-standard-answers">Evaluate model outputs with reference to gold-standard answers</h3>
+
+<p>Suppose it is known that the correct answer to a question should make reference to a specific set of known facts. Then we can use a model query to count how many of the required facts are included in the answer.</p>
+
+    </div>
+  
+    <div class="date">
+      Written on June  6, 2023
+    </div>
+  
+    
+<div class="comments">
+	<!-- <div id="disqus_thread"></div>
+	<script type="text/javascript">
+
+	    var disqus_shortname = 'sakaman';
+
+	    (function() {
+	        var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+	        dsq.src = '//' + disqus_shortname + '.disqus.com/embed.js';
+	        (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+	    })();
+
+	</script> -->
+
+	<div id="gisqus_thread"></div>
+	<script src="https://giscus.app/client.js" data-repo="sakaman/sakaman.github.io" data-repo-id="R_kgDOHMUjFQ"
+    data-category="General" data-category-id="DIC_kwDOHMUjFc4CPANy" data-mapping="pathname" data-reactions-enabled="1"
+    data-emit-metadata="0" data-input-position="top" data-theme="light" data-lang="zh-CN" data-loading="lazy"
+    crossorigin="anonymous" async>
+    </script>
+	<!-- <noscript>Please enable JavaScript to view the <a href="http://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript> -->
+	<noscript>Please enable JavaScript to view the <a href="http://gisqus.com/?ref_noscript">comments powered by Gisqus.</a></noscript>
+</div>
+
+  </article>
+
+</main>
+
+    </div>
+
+    <div class="wrapper-footer">
+      <div class="container">
+        <footer class="footer">
+          
+
+
+
+<a href="https://github.com/sakaman/sakaman.github.io"><i class="svg-icon github"></i></a>
+
+
+
+
+
+
+
+
+          <script>
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('/sw.js')
+        })
+    }
+</script>
+        </footer>
+      </div>
+    </div>
+
+    
+
+  </body>
+</html>

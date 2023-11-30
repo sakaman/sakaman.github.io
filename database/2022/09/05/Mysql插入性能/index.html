@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en-US">
+  <head>
+    <!-- General meta -->
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <title>MySQL插入性能比较 – Desnowy – Normal people from Zhai</title>
+
+        <meta charset="utf-8" />
+    <meta content='text/html; charset=utf-8' http-equiv='Content-Type'>
+    <meta http-equiv='X-UA-Compatible' content='IE=edge'>
+    <meta name='viewport' content='width=device-width, initial-scale=1.0, maximum-scale=1.0'>
+
+    
+    <meta name="description" content="基于 MySQL 对数据库批量插入的性能研究
+
+" />
+    <meta property="og:description" content="基于 MySQL 对数据库批量插入的性能研究
+
+" />
+    
+    <meta name="author" content="Desnowy" />
+
+    
+    <meta property="og:title" content="MySQL插入性能比较" />
+    <meta property="twitter:title" content="MySQL插入性能比较" />
+    
+    
+  
+    <link rel="icon" type="image/png" href="/assets/logo@16px.png" sizes="16x16">
+    <link rel="apple-touch-icon" sizes="16x16" href="/assets/logo@16px.png">
+  
+    <link rel="icon" type="image/png" href="/assets/logo@32px.png" sizes="32x32">
+    <link rel="apple-touch-icon" sizes="32x32" href="/assets/logo@32px.png">
+  
+    <link rel="icon" type="image/png" href="/assets/logo@96px.png" sizes="96x96">
+    <link rel="apple-touch-icon" sizes="96x96" href="/assets/logo@96px.png">
+  
+    <link rel="icon" type="image/png" href="/assets/logo@120px.png" sizes="120x120">
+    <link rel="apple-touch-icon" sizes="120x120" href="/assets/logo@120px.png">
+  
+    <link rel="icon" type="image/png" href="/assets/logo@144px.png" sizes="144x144">
+    <link rel="apple-touch-icon" sizes="144x144" href="/assets/logo@144px.png">
+  
+    <link rel="icon" type="image/png" href="/assets/logo@180px.png" sizes="180x180">
+    <link rel="apple-touch-icon" sizes="180x180" href="/assets/logo@180px.png">
+  
+    <link rel="icon" type="image/png" href="/assets/logo@512px.png" sizes="512x512">
+    <link rel="apple-touch-icon" sizes="512x512" href="/assets/logo@512px.png">
+  
+    <link rel="icon" type="image/png" href="/assets/logo@1024px.png" sizes="1024x1024">
+    <link rel="apple-touch-icon" sizes="1024x1024" href="/assets/logo@1024px.png">
+  
+
+<link rel="shortcut icon" href="">
+
+
+    <!--[if lt IE 9]>
+      <script src="http://html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+
+    <link rel="stylesheet" type="text/css" href="/style.css" />
+    <link rel="alternate" type="application/rss+xml" title="Desnowy - Normal people from Zhai" href="/feed.xml" />
+    <link rel="manifest" href="/manifest.json">
+
+    <!-- Created with Jekyll Now - http://github.com/barryclark/jekyll-now -->
+  </head>
+
+  <body>
+    <div class="wrapper-masthead">
+      <div class="container">
+        <header class="masthead clearfix">
+          <a href="/" class="site-avatar"><img src="/assets/logo@1024px.png" /></a>
+
+          <div class="site-info">
+            <h1 class="site-name"><a href="/">Desnowy</a></h1>
+            <p class="site-description">Normal people from Zhai</p>
+          </div>
+
+          <nav>
+            <a href="/">Blog</a>
+            <a href="/categories">Categories</a>
+            <a href="/search">Search</a>
+            <a href="/about">About</a>
+          </nav>
+        </header>
+      </div>
+    </div>
+
+    <div id="main" role="main" class="container">
+      <main class="main  container">
+  
+  <div class="toc">
+    <h2>Table of Contents</h2>
+    <ul id="toc" class="section-nav">
+<li class="toc-entry toc-h2"><a href="#概要">概要</a></li>
+<li class="toc-entry toc-h2"><a href="#要点">要点</a></li>
+<li class="toc-entry toc-h2"><a href="#批量插入模式">批量插入模式</a></li>
+<li class="toc-entry toc-h2"><a href="#jdbc">JDBC</a>
+<ul>
+<li class="toc-entry toc-h3"><a href="#single-inserts">Single Inserts</a></li>
+<li class="toc-entry toc-h3"><a href="#batch-insert">Batch Insert</a></li>
+<li class="toc-entry toc-h3"><a href="#dirty-bulk-insert">Dirty Bulk Insert</a></li>
+<li class="toc-entry toc-h3"><a href="#safe-bulk-insert">Safe Bulk Insert</a></li>
+<li class="toc-entry toc-h3"><a href="#single-inserts-in-a-transaction">Single inserts in a transaction</a></li>
+</ul>
+</li>
+<li class="toc-entry toc-h2"><a href="#ormmybatis">ORM(Mybatis)</a>
+<ul>
+<li class="toc-entry toc-h3"><a href="#single-inserts-1">Single inserts</a></li>
+<li class="toc-entry toc-h3"><a href="#batch-insert-1">Batch insert</a></li>
+<li class="toc-entry toc-h3"><a href="#bulk-insert">Bulk insert</a></li>
+</ul>
+</li>
+</ul>
+  </div>      
+  
+  <article class="post">
+    <h1>MySQL插入性能比较</h1>
+    
+
+<small class="small  post-meta">
+  
+  
+    
+      <span class="label  label--category"><a href="/categories/#database">Database</a></span>
+    
+  &nbsp;&middot;&nbsp;<time datetime="2022-09-05T00:00:00+00:00" class="time">05 Sep 2022</time>
+</small>
+
+    
+    <div class="entry">
+      <p>基于 MySQL 对数据库批量插入的性能研究</p>
+
+<h2 id="概要">概要</h2>
+
+<ol>
+  <li>多条批量插入性能差，无论是否开启整体事务或重写批量语句</li>
+  <li>JDBC批量提交在开启重写批量语句时，性能得到极大提升</li>
+  <li>单条插入性能优良</li>
+  <li>Mybatis获取session插入提交「开启重写批量语句」与手写单条插入性能无异</li>
+</ol>
+
+<h2 id="要点">要点</h2>
+
+<ol>
+  <li>JDBC原生性能最佳</li>
+  <li>存在批量插入的场景，开启rewriteBatchStatements</li>
+</ol>
+
+<h2 id="批量插入模式">批量插入模式</h2>
+
+<p>数据库批量插入有几种模式：</p>
+
+<ol>
+  <li>多条插入(Multi single statements)</li>
+  <li>单条多值插入(Batch: Single statement with multi values)</li>
+  <li>批量插入(bulk insert provided by ORM)</li>
+  <li>批量插入(bulk insert provided by ORM with enable rewrite)</li>
+</ol>
+
+<h2 id="jdbc">JDBC</h2>
+
+<h3 id="single-inserts">Single Inserts</h3>
+
+<blockquote>
+  <p>Cost 360013ms<br />
+Cost 388987ms (enable rewriteBatchStatements)</p>
+</blockquote>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kd">public</span> <span class="kt">void</span> <span class="nf">handle</span><span class="o">(</span><span class="nc">Connection</span> <span class="n">connection</span><span class="o">)</span> <span class="kd">throws</span> <span class="nc">SQLException</span> <span class="o">{</span>
+    <span class="k">for</span> <span class="o">(</span><span class="kt">int</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="o">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="no">ITERATION_COUNT</span><span class="o">;</span> <span class="n">i</span><span class="o">++)</span> <span class="o">{</span>
+        <span class="kd">final</span> <span class="nc">PreparedStatement</span> <span class="n">statement</span> <span class="o">=</span> <span class="n">connection</span><span class="o">.</span><span class="na">prepareStatement</span><span class="o">(</span><span class="s">"INSERT INTO t_perf (c1, c2, c3) VALUES (?, ?, ?)"</span><span class="o">);</span>
+        <span class="n">statement</span><span class="o">.</span><span class="na">setInt</span><span class="o">(</span><span class="mi">1</span><span class="o">,</span> <span class="n">i</span><span class="o">);</span>
+        <span class="n">statement</span><span class="o">.</span><span class="na">setFloat</span><span class="o">(</span><span class="mi">2</span><span class="o">,</span> <span class="n">i</span><span class="o">);</span>
+        <span class="n">statement</span><span class="o">.</span><span class="na">setString</span><span class="o">(</span><span class="mi">3</span><span class="o">,</span> <span class="n">valueOf</span><span class="o">(</span><span class="n">i</span><span class="o">));</span>
+        <span class="n">statement</span><span class="o">.</span><span class="na">execute</span><span class="o">();</span>
+        <span class="n">statement</span><span class="o">.</span><span class="na">close</span><span class="o">();</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+</code></pre></div></div>
+
+<h3 id="batch-insert">Batch Insert</h3>
+
+<blockquote>
+  <p>Cost 182008ms<br />
+Cost 869ms (enable rewriteBatchStatements)</p>
+</blockquote>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kd">public</span> <span class="kt">void</span> <span class="nf">handle</span><span class="o">(</span><span class="nc">Connection</span> <span class="n">connection</span><span class="o">)</span> <span class="kd">throws</span> <span class="nc">SQLException</span> <span class="o">{</span>
+    <span class="kd">final</span> <span class="nc">PreparedStatement</span> <span class="n">statement</span> <span class="o">=</span> <span class="n">connection</span><span class="o">.</span><span class="na">prepareStatement</span><span class="o">(</span><span class="s">"INSERT INTO t_perf (c1, c2, c3) VALUES (?, ?, ?)"</span><span class="o">);</span>
+    <span class="k">for</span> <span class="o">(</span><span class="kt">int</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="o">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="no">ITERATION_COUNT</span><span class="o">;</span> <span class="n">i</span><span class="o">++)</span> <span class="o">{</span>
+        <span class="n">statement</span><span class="o">.</span><span class="na">setInt</span><span class="o">(</span><span class="mi">1</span><span class="o">,</span> <span class="n">i</span><span class="o">);</span>
+        <span class="n">statement</span><span class="o">.</span><span class="na">setFloat</span><span class="o">(</span><span class="mi">2</span><span class="o">,</span> <span class="n">i</span><span class="o">);</span>
+        <span class="n">statement</span><span class="o">.</span><span class="na">setString</span><span class="o">(</span><span class="mi">3</span><span class="o">,</span> <span class="n">valueOf</span><span class="o">(</span><span class="n">i</span><span class="o">));</span>
+        <span class="n">statement</span><span class="o">.</span><span class="na">addBatch</span><span class="o">();</span>
+    <span class="o">}</span>
+    <span class="n">log</span><span class="o">.</span><span class="na">info</span><span class="o">(</span><span class="s">"{}"</span><span class="o">,</span> <span class="n">statement</span><span class="o">);</span>
+    <span class="n">statement</span><span class="o">.</span><span class="na">executeBatch</span><span class="o">();</span>
+    <span class="n">statement</span><span class="o">.</span><span class="na">close</span><span class="o">();</span>
+<span class="o">}</span>
+</code></pre></div></div>
+
+<h3 id="dirty-bulk-insert">Dirty Bulk Insert</h3>
+
+<blockquote>
+  <p>Cost 762ms<br />
+Cost 846ms (enable rewriteBatchStatements)</p>
+</blockquote>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kd">public</span> <span class="kt">void</span> <span class="nf">handle</span><span class="o">(</span><span class="nc">Connection</span> <span class="n">connection</span><span class="o">)</span> <span class="kd">throws</span> <span class="nc">SQLException</span> <span class="o">{</span>
+    <span class="kd">final</span> <span class="nc">StringBuilder</span> <span class="n">builder</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">StringBuilder</span><span class="o">(</span><span class="s">"INSERT INTO t_perf (c1, c2, c3) VALUES "</span><span class="o">);</span>
+    <span class="k">for</span> <span class="o">(</span><span class="kt">int</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="o">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="no">ITERATION_COUNT</span><span class="o">;</span> <span class="n">i</span><span class="o">++)</span> <span class="o">{</span>
+        <span class="k">if</span> <span class="o">(</span><span class="n">i</span> <span class="o">!=</span> <span class="mi">0</span><span class="o">)</span> <span class="o">{</span>
+            <span class="n">builder</span><span class="o">.</span><span class="na">append</span><span class="o">(</span><span class="s">","</span><span class="o">);</span>
+        <span class="o">}</span>
+        <span class="n">builder</span><span class="o">.</span><span class="na">append</span><span class="o">(</span><span class="n">format</span><span class="o">(</span><span class="s">"(%s, %s, '%s')"</span><span class="o">,</span> <span class="n">i</span><span class="o">,</span> <span class="n">i</span><span class="o">,</span> <span class="n">i</span><span class="o">));</span>
+    <span class="o">}</span>
+    <span class="kd">final</span> <span class="nc">String</span> <span class="n">query</span> <span class="o">=</span> <span class="n">builder</span><span class="o">.</span><span class="na">toString</span><span class="o">();</span>
+    <span class="kd">final</span> <span class="nc">PreparedStatement</span> <span class="n">statement</span> <span class="o">=</span> <span class="n">connection</span><span class="o">.</span><span class="na">prepareStatement</span><span class="o">(</span><span class="n">query</span><span class="o">);</span>
+    <span class="n">log</span><span class="o">.</span><span class="na">info</span><span class="o">(</span><span class="s">"{}"</span><span class="o">,</span> <span class="n">statement</span><span class="o">);</span>
+    <span class="n">statement</span><span class="o">.</span><span class="na">execute</span><span class="o">();</span>
+    <span class="n">statement</span><span class="o">.</span><span class="na">close</span><span class="o">();</span>
+<span class="o">}</span>
+</code></pre></div></div>
+
+<h3 id="safe-bulk-insert">Safe Bulk Insert</h3>
+
+<blockquote>
+  <p>Cost 716ms<br />
+Cost 808ms (enable rewriteBatchStatements)</p>
+</blockquote>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kd">private</span> <span class="nc">String</span> <span class="nf">getInsertPlaceholders</span><span class="o">(</span><span class="kt">int</span> <span class="n">placeholderCount</span><span class="o">)</span> <span class="o">{</span>
+    <span class="kd">final</span> <span class="nc">StringBuilder</span> <span class="n">builder</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">StringBuilder</span><span class="o">(</span><span class="s">"("</span><span class="o">);</span>
+    <span class="k">for</span> <span class="o">(</span><span class="kt">int</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="o">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">placeholderCount</span><span class="o">;</span> <span class="n">i</span><span class="o">++)</span> <span class="o">{</span>
+        <span class="k">if</span> <span class="o">(</span><span class="n">i</span> <span class="o">!=</span> <span class="mi">0</span><span class="o">)</span> <span class="o">{</span>
+            <span class="n">builder</span><span class="o">.</span><span class="na">append</span><span class="o">(</span><span class="s">","</span><span class="o">);</span>
+        <span class="o">}</span>
+        <span class="n">builder</span><span class="o">.</span><span class="na">append</span><span class="o">(</span><span class="s">"?"</span><span class="o">);</span>
+    <span class="o">}</span>
+    <span class="k">return</span> <span class="n">builder</span><span class="o">.</span><span class="na">append</span><span class="o">(</span><span class="s">")"</span><span class="o">).</span><span class="na">toString</span><span class="o">();</span>
+<span class="o">}</span>
+
+<span class="nd">@SuppressWarnings</span><span class="o">(</span><span class="s">"AssignmentToForLoopParameter"</span><span class="o">)</span>
+<span class="nd">@Override</span>
+<span class="kd">public</span> <span class="kt">void</span> <span class="nf">handle</span><span class="o">(</span><span class="nc">Connection</span> <span class="n">connection</span><span class="o">)</span> <span class="kd">throws</span> <span class="nc">SQLException</span> <span class="o">{</span>
+    <span class="kd">final</span> <span class="kt">int</span> <span class="n">columnCount</span> <span class="o">=</span> <span class="mi">3</span><span class="o">;</span>
+    <span class="kd">final</span> <span class="nc">StringBuilder</span> <span class="n">builder</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">StringBuilder</span><span class="o">(</span><span class="s">"INSERT INTO t_perf (c1, c2, c3) VALUES "</span><span class="o">);</span>
+    <span class="kd">final</span> <span class="nc">String</span> <span class="n">placeholders</span> <span class="o">=</span> <span class="n">getInsertPlaceholders</span><span class="o">(</span><span class="n">columnCount</span><span class="o">);</span>
+    <span class="k">for</span> <span class="o">(</span><span class="kt">int</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="o">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="no">ITERATION_COUNT</span><span class="o">;</span> <span class="n">i</span><span class="o">++)</span> <span class="o">{</span>
+        <span class="k">if</span> <span class="o">(</span><span class="n">i</span> <span class="o">!=</span> <span class="mi">0</span><span class="o">)</span> <span class="o">{</span>
+            <span class="n">builder</span><span class="o">.</span><span class="na">append</span><span class="o">(</span><span class="s">","</span><span class="o">);</span>
+        <span class="o">}</span>
+        <span class="n">builder</span><span class="o">.</span><span class="na">append</span><span class="o">(</span><span class="n">placeholders</span><span class="o">);</span>
+    <span class="o">}</span>
+    <span class="kd">final</span> <span class="kt">int</span> <span class="n">maxParameterIndex</span> <span class="o">=</span> <span class="no">ITERATION_COUNT</span> <span class="o">*</span> <span class="n">columnCount</span><span class="o">;</span>
+    <span class="kd">final</span> <span class="nc">String</span> <span class="n">query</span> <span class="o">=</span> <span class="n">builder</span><span class="o">.</span><span class="na">toString</span><span class="o">();</span>
+    <span class="kd">final</span> <span class="nc">PreparedStatement</span> <span class="n">statement</span> <span class="o">=</span> <span class="n">connection</span><span class="o">.</span><span class="na">prepareStatement</span><span class="o">(</span><span class="n">query</span><span class="o">);</span>
+    <span class="kt">int</span> <span class="n">valueIndex</span> <span class="o">=</span> <span class="mi">0</span><span class="o">;</span>
+    <span class="k">for</span> <span class="o">(</span><span class="kt">int</span> <span class="n">parameterIndex</span> <span class="o">=</span> <span class="mi">1</span><span class="o">;</span> <span class="n">parameterIndex</span> <span class="o">&lt;=</span> <span class="n">maxParameterIndex</span><span class="o">;</span> <span class="n">valueIndex</span><span class="o">++)</span> <span class="o">{</span>
+        <span class="n">statement</span><span class="o">.</span><span class="na">setObject</span><span class="o">(</span><span class="n">parameterIndex</span><span class="o">++,</span> <span class="n">valueIndex</span><span class="o">);</span>
+        <span class="n">statement</span><span class="o">.</span><span class="na">setObject</span><span class="o">(</span><span class="n">parameterIndex</span><span class="o">++,</span> <span class="n">valueIndex</span><span class="o">);</span>
+        <span class="n">statement</span><span class="o">.</span><span class="na">setObject</span><span class="o">(</span><span class="n">parameterIndex</span><span class="o">++,</span> <span class="n">valueIndex</span><span class="o">);</span>
+    <span class="o">}</span>
+    <span class="n">log</span><span class="o">.</span><span class="na">info</span><span class="o">(</span><span class="s">"{}"</span><span class="o">,</span> <span class="n">statement</span><span class="o">);</span>
+    <span class="n">statement</span><span class="o">.</span><span class="na">execute</span><span class="o">();</span>
+    <span class="n">statement</span><span class="o">.</span><span class="na">close</span><span class="o">();</span>
+<span class="o">}</span>
+</code></pre></div></div>
+
+<h3 id="single-inserts-in-a-transaction">Single inserts in a transaction</h3>
+
+<blockquote>
+  <p>Cost 402029ms</p>
+</blockquote>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kd">public</span> <span class="kt">void</span> <span class="nf">handle</span><span class="o">(</span><span class="nc">Connection</span> <span class="n">connection</span><span class="o">)</span> <span class="kd">throws</span> <span class="nc">SQLException</span> <span class="o">{</span>
+    <span class="n">connection</span><span class="o">.</span><span class="na">setAutoCommit</span><span class="o">(</span><span class="kc">false</span><span class="o">);</span>
+    <span class="k">for</span> <span class="o">(</span><span class="kt">int</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="o">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="no">ITERATION_COUNT</span><span class="o">;</span> <span class="n">i</span><span class="o">++)</span> <span class="o">{</span>
+        <span class="kd">final</span> <span class="nc">PreparedStatement</span> <span class="n">statement</span> <span class="o">=</span> <span class="n">connection</span><span class="o">.</span><span class="na">prepareStatement</span><span class="o">(</span><span class="s">"INSERT INTO t_perf (c1, c2, c3) VALUES (?, ?, ?)"</span><span class="o">);</span>
+        <span class="n">statement</span><span class="o">.</span><span class="na">setInt</span><span class="o">(</span><span class="mi">1</span><span class="o">,</span> <span class="n">i</span><span class="o">);</span>
+        <span class="n">statement</span><span class="o">.</span><span class="na">setFloat</span><span class="o">(</span><span class="mi">2</span><span class="o">,</span> <span class="n">i</span><span class="o">);</span>
+        <span class="n">statement</span><span class="o">.</span><span class="na">setString</span><span class="o">(</span><span class="mi">3</span><span class="o">,</span> <span class="n">valueOf</span><span class="o">(</span><span class="n">i</span><span class="o">));</span>
+        <span class="n">statement</span><span class="o">.</span><span class="na">execute</span><span class="o">();</span>
+        <span class="n">statement</span><span class="o">.</span><span class="na">close</span><span class="o">();</span>
+    <span class="o">}</span>
+    <span class="n">connection</span><span class="o">.</span><span class="na">commit</span><span class="o">();</span>
+<span class="o">}</span>
+</code></pre></div></div>
+
+<h2 id="ormmybatis">ORM(Mybatis)</h2>
+
+<h3 id="single-inserts-1">Single inserts</h3>
+
+<blockquote>
+  <p>Cost 41350ms</p>
+</blockquote>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kd">public</span> <span class="kt">void</span> <span class="nf">handle</span><span class="o">()</span> <span class="o">{</span>
+  <span class="k">for</span> <span class="o">(</span><span class="nc">Person</span> <span class="n">person</span> <span class="o">:</span> <span class="n">persons</span><span class="o">)</span> <span class="o">{</span>
+    <span class="n">mapper</span><span class="o">.</span><span class="na">insert</span><span class="o">(</span><span class="n">person</span><span class="o">);</span>
+  <span class="o">}</span>
+<span class="o">}</span>
+</code></pre></div></div>
+
+<h3 id="batch-insert-1">Batch insert</h3>
+
+<blockquote>
+  <p>Cost 22141ms<br />
+Cost 1191ms (enable rewriteBatchStatements)</p>
+</blockquote>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kd">public</span> <span class="kt">void</span> <span class="nf">handle</span><span class="o">()</span> <span class="o">{</span>
+  <span class="nc">PersonMapper</span> <span class="n">mapper</span> <span class="o">=</span> <span class="n">sqlSession</span><span class="o">.</span><span class="na">getMapper</span><span class="o">(</span><span class="nc">PersonMapper</span><span class="o">.</span><span class="na">class</span><span class="o">);</span>
+  <span class="k">for</span> <span class="o">(</span><span class="nc">Person</span> <span class="n">person</span> <span class="o">:</span> <span class="n">persons</span><span class="o">)</span> <span class="o">{</span>
+      <span class="n">mapper</span><span class="o">.</span><span class="na">insert</span><span class="o">(</span><span class="n">person</span><span class="o">);</span>
+  <span class="o">}</span>
+  <span class="n">sqlSession</span><span class="o">.</span><span class="na">commit</span><span class="o">();</span>
+<span class="o">}</span>
+</code></pre></div></div>
+
+<h3 id="bulk-insert">Bulk insert</h3>
+
+<blockquote>
+  <p>Cost 1170ms</p>
+</blockquote>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kd">public</span> <span class="kt">void</span> <span class="nf">handle</span><span class="o">()</span> <span class="o">{</span>
+  <span class="n">personMapper</span><span class="o">.</span><span class="na">insertList</span><span class="o">(</span><span class="n">persons</span><span class="o">);</span>
+<span class="o">}</span>
+</code></pre></div></div>
+
+    </div>
+  
+    <div class="date">
+      Written on September  5, 2022
+    </div>
+  
+    
+<div class="comments">
+	<!-- <div id="disqus_thread"></div>
+	<script type="text/javascript">
+
+	    var disqus_shortname = 'sakaman';
+
+	    (function() {
+	        var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+	        dsq.src = '//' + disqus_shortname + '.disqus.com/embed.js';
+	        (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+	    })();
+
+	</script> -->
+
+	<div id="gisqus_thread"></div>
+	<script src="https://giscus.app/client.js" data-repo="sakaman/sakaman.github.io" data-repo-id="R_kgDOHMUjFQ"
+    data-category="General" data-category-id="DIC_kwDOHMUjFc4CPANy" data-mapping="pathname" data-reactions-enabled="1"
+    data-emit-metadata="0" data-input-position="top" data-theme="light" data-lang="zh-CN" data-loading="lazy"
+    crossorigin="anonymous" async>
+    </script>
+	<!-- <noscript>Please enable JavaScript to view the <a href="http://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript> -->
+	<noscript>Please enable JavaScript to view the <a href="http://gisqus.com/?ref_noscript">comments powered by Gisqus.</a></noscript>
+</div>
+
+  </article>
+
+</main>
+
+    </div>
+
+    <div class="wrapper-footer">
+      <div class="container">
+        <footer class="footer">
+          
+
+
+
+<a href="https://github.com/sakaman/sakaman.github.io"><i class="svg-icon github"></i></a>
+
+
+
+
+
+
+
+
+          <script>
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('/sw.js')
+        })
+    }
+</script>
+        </footer>
+      </div>
+    </div>
+
+    
+
+  </body>
+</html>
