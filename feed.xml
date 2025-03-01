@@ -1,0 +1,1412 @@
+<?xml version="1.0" encoding="utf-8"?><feed xmlns="http://www.w3.org/2005/Atom" ><generator uri="https://jekyllrb.com/" version="3.9.3">Jekyll</generator><link href="https://sakaman.github.io/feed.xml" rel="self" type="application/atom+xml" /><link href="https://sakaman.github.io/" rel="alternate" type="text/html" /><updated>2025-03-01T09:26:44+00:00</updated><id>https://sakaman.github.io/feed.xml</id><title type="html">Desnowy</title><subtitle>Normal people from Zhai</subtitle><entry><title type="html">MySQL的锁现象及原理</title><link href="https://sakaman.github.io/database/2023/07/22/MySQL%E7%9A%84%E9%94%81%E7%8E%B0%E8%B1%A1%E5%8F%8A%E5%8E%9F%E7%90%86/" rel="alternate" type="text/html" title="MySQL的锁现象及原理" /><published>2023-07-22T00:00:00+00:00</published><updated>2023-07-22T00:00:00+00:00</updated><id>https://sakaman.github.io/database/2023/07/22/MySQL%E7%9A%84%E9%94%81%E7%8E%B0%E8%B1%A1%E5%8F%8A%E5%8E%9F%E7%90%86</id><content type="html" xml:base="https://sakaman.github.io/database/2023/07/22/MySQL%E7%9A%84%E9%94%81%E7%8E%B0%E8%B1%A1%E5%8F%8A%E5%8E%9F%E7%90%86/">&lt;p&gt;叙述与分析MySQL的一些锁现象和原理&lt;/p&gt;
+
+&lt;h1 id=&quot;锁的类别&quot;&gt;锁的类别&lt;/h1&gt;
+
+&lt;h2 id=&quot;共享锁与独占锁shared-and-exclusive-locks&quot;&gt;共享锁与独占锁（Shared and Exclusive Locks）&lt;/h2&gt;
+
+&lt;p&gt;InnoDB标准的行级锁：共享（S）锁、独占（X）锁&lt;/p&gt;
+&lt;ul&gt;
+  &lt;li&gt;共享锁允许持有该锁的事务读取一行&lt;/li&gt;
+  &lt;li&gt;独占锁允许持有该锁的事务更新或删除行&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;h2 id=&quot;意向锁intention-locks&quot;&gt;意向锁（Intention Locks）&lt;/h2&gt;
+
+&lt;p&gt;InnoDB支持多粒度锁定，允许行锁和表锁共存——用意向锁实现。意向锁是&lt;strong&gt;表级锁&lt;/strong&gt;，表明事务稍后需要对表中的行使用哪种类型的锁（共享、独占）。&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;意向共享锁（IS）表示事务试图在表中的单独行上设置共享锁。&lt;/li&gt;
+  &lt;li&gt;意向排它锁（IX）表示事务试图在表中的单独行上设置排它锁。&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;SELECT ... FOR SHARE&lt;/code&gt; 设置IS锁，&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;SELECT ... FOR UPDATE&lt;/code&gt; 设置IX锁。&lt;/p&gt;
+
+&lt;p&gt;意向锁协议：&lt;/p&gt;
+&lt;ul&gt;
+  &lt;li&gt;在事务获取表中行的共享锁之前，必须先获取表上的IS锁或者更强的锁。&lt;/li&gt;
+  &lt;li&gt;在事务获取表中的排它锁之前，必须先获取表的IX锁。&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;表级锁兼容性：&lt;/p&gt;
+
+&lt;table&gt;
+  &lt;thead&gt;
+    &lt;tr&gt;
+      &lt;th&gt; &lt;/th&gt;
+      &lt;th&gt;X&lt;/th&gt;
+      &lt;th&gt;IX&lt;/th&gt;
+      &lt;th&gt;S&lt;/th&gt;
+      &lt;th&gt;IS&lt;/th&gt;
+    &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+    &lt;tr&gt;
+      &lt;td&gt;X&lt;/td&gt;
+      &lt;td&gt;❌&lt;/td&gt;
+      &lt;td&gt;❌&lt;/td&gt;
+      &lt;td&gt;❌&lt;/td&gt;
+      &lt;td&gt;❌&lt;/td&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td&gt;IX&lt;/td&gt;
+      &lt;td&gt;❌&lt;/td&gt;
+      &lt;td&gt;✅&lt;/td&gt;
+      &lt;td&gt;❌&lt;/td&gt;
+      &lt;td&gt;✅&lt;/td&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td&gt;S&lt;/td&gt;
+      &lt;td&gt;❌&lt;/td&gt;
+      &lt;td&gt;❌&lt;/td&gt;
+      &lt;td&gt;✅&lt;/td&gt;
+      &lt;td&gt;✅&lt;/td&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td&gt;IS&lt;/td&gt;
+      &lt;td&gt;❌&lt;/td&gt;
+      &lt;td&gt;✅&lt;/td&gt;
+      &lt;td&gt;✅&lt;/td&gt;
+      &lt;td&gt;✅&lt;/td&gt;
+    &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+
+&lt;h2 id=&quot;记录锁record-locks&quot;&gt;记录锁（Record Locks）&lt;/h2&gt;
+
+&lt;p&gt;记录锁是&lt;strong&gt;索引记录&lt;/strong&gt;上的锁。记录锁始终锁定索引记录，即使表定义没有索引（InnoDB创建一个隐藏的聚簇索引，并使用该索引进行记录锁定）。&lt;/p&gt;
+
+&lt;h2 id=&quot;间隙锁gap-locks&quot;&gt;间隙锁（Gap Locks）&lt;/h2&gt;
+
+&lt;p&gt;间隙锁是对索引记录之间间隙的锁定，或者对第一个索引记录之前或者最后一个索引记录之后的锁定。间隙可能跨越单个、多个索引值，甚至空的。不同事务可以在间隙上持有冲突锁。间隙锁是纯抑制性的（防止其他事务插入间隙），可以共存。一个事务获取的间隙锁不会阻止另一事务在统一间隙上获取间隙锁。&lt;/p&gt;
+
+&lt;h2 id=&quot;临键锁next-key-locks&quot;&gt;临键锁（Next-Key Locks）&lt;/h2&gt;
+
+&lt;p&gt;临键锁是索引记录上的记录锁和索引记录之前的间隙上的间隙锁的组合。&lt;/p&gt;
+
+&lt;p&gt;索引记录上的临键锁会影响该索引记录之前的“间隙”。如果一个会话对索引中的记录R具有共享锁或独占锁，则另一个会话无法在索引顺序中紧邻R之前的间隙中插入新索引记录。&lt;/p&gt;
+
+&lt;p&gt;默认情况，InnoDB在REPEATABLE READ事务隔离级别中生效。InnoDB使用临键锁进行搜索和索引扫描，防止&lt;strong&gt;幻影行&lt;/strong&gt;。&lt;/p&gt;
+
+&lt;h2 id=&quot;插入意向锁insert-intention-locks&quot;&gt;插入意向锁（Insert Intention Locks）&lt;/h2&gt;
+
+&lt;p&gt;插入意向锁是一种间隙锁，在行插入之前由&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;INSERT&lt;/code&gt;设置。插入同一索引间隙的多个事务如果没有插入间隙内的同一位置，则无需互相等待。&lt;/p&gt;
+
+&lt;h2 id=&quot;auto-inc锁auto-inc-locks&quot;&gt;AUTO-INC锁（AUTO-INC Locks）&lt;/h2&gt;
+
+&lt;p&gt;AUTO-INC锁是一种特殊的表级锁，由插入具有&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;AUTO_INCREMENT&lt;/code&gt;列的表的事务获取。如果一个事务正在将值插入表中，则任何其他事务必须等待才能向该表中执行自己的插入操作，以便第一个事务插入的行接收连续的主键值。&lt;/p&gt;
+
+&lt;p&gt;shared mode lock: 共享模式锁&lt;/p&gt;
+
+&lt;h1 id=&quot;locking-reads&quot;&gt;Locking Reads&lt;/h1&gt;
+
+&lt;p&gt;https://dev.mysql.com/doc/refman/8.0/en/innodb-locking-reads.html
+https://shiroyasha.io/selecting-for-share-and-update-in-postgresql.html&lt;/p&gt;
+
+&lt;p&gt;SELECT FOR SHARE（LOCK IN SHARE MODE）&lt;/p&gt;
+
+&lt;p&gt;对读取的任意行设置共享模式锁，其他会话可以读取这些行，但在事务提交前，无法修改它们。并且如果其中任何一行被其它尚未提交的事务更改，查询将等待直到该事务结束，然后使用最新值。&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/images/2023-07/Pasted%20image%2020230722175558.png&quot; alt=&quot;&quot; /&gt;&lt;/p&gt;
+&lt;ol&gt;
+  &lt;li&gt;左一会话开启事务，执行FOR SHARE语句，右二会话可以SELECT、FOR SHARE可以获取值。&lt;/li&gt;
+  &lt;li&gt;左一会话在事务中更新，右二会话执行普通SELECT得到旧值，执行FOR SHARE进入等待。&lt;/li&gt;
+  &lt;li&gt;左一会话提交事务后，右二返回最新值。&lt;/li&gt;
+&lt;/ol&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/images/2023-07/Pasted%20image%2020230722172744.png&quot; alt=&quot;&quot; /&gt;&lt;/p&gt;
+&lt;ol&gt;
+  &lt;li&gt;左一开启事务，执行FOR SHARE语句，右二会话执行UPDATE进入等待。&lt;/li&gt;
+  &lt;li&gt;左一提交事务，右二返回，SELECT返回最新值。&lt;/li&gt;
+&lt;/ol&gt;
+
+&lt;h2 id=&quot;select-for-update&quot;&gt;SELECT FOR UPDATE&lt;/h2&gt;
+
+&lt;p&gt;对于查询的所有行，锁定行和关联的索引条目，与UPDATE语句类似。其他事务将被阻止更新这些行，或者执行FOR SHARE、读取某些事务隔离级别中的数据。&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/images/2023-07/Pasted%20image%2020230722172123.png&quot; alt=&quot;&quot; /&gt;&lt;/p&gt;
+&lt;ol&gt;
+  &lt;li&gt;左一会话开启事务，执行FOR UPDATE语句，右二会话执行普通语句可以获取值。&lt;/li&gt;
+  &lt;li&gt;右二会话执行FOR SHARE/FOR UPDATE进入等待，左二提交事务后，返回值。&lt;/li&gt;
+&lt;/ol&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/images/2023-07/Pasted%20image%2020230722172510.png&quot; alt=&quot;&quot; /&gt;&lt;/p&gt;
+&lt;ol&gt;
+  &lt;li&gt;左一会话开启事务，执行FOR UPDATE语句，右二执行UPDATE进入等待。&lt;/li&gt;
+  &lt;li&gt;左一提交事务后，右二返回，SELECT返回最新值。&lt;/li&gt;
+&lt;/ol&gt;
+
+&lt;p&gt;当事务提交或回滚时，FOR SHARE和FOR UPDATE设置的所有锁都回被释放。&lt;/p&gt;
+
+&lt;p&gt;外部语句的锁定不会锁嵌套子查询表中的行，除非子查询也锁定读取子句。&lt;/p&gt;
+
+&lt;h3 id=&quot;theory-of-select-for-update&quot;&gt;Theory of &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;SELECT FOR UPDATE&lt;/code&gt;&lt;/h3&gt;
+
+&lt;p&gt;从&lt;a href=&quot;https://dev.mysql.com/doc/refman/8.0/en/innodb-locking-reads.html#:~:text=A%20SELECT%20...%20FOR%20UPDATE%20reads%20the%20latest%20available%20data%2C%20setting%20exclusive%20locks%20on%20each%20row%20it%20reads.%20Thus%2C%20it%20sets%20the%20same%20locks%20a%20searched%20SQL%20UPDATE%20would%20set%20on%20the%20rows.&quot;&gt;官方文档&lt;/a&gt;上可见，&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;FOR UPDATE&lt;/code&gt;的表现形式与&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;UPDATE&lt;/code&gt;等效：&lt;/p&gt;
+
+&lt;blockquote&gt;
+  &lt;p&gt;A &lt;a href=&quot;https://dev.mysql.com/doc/refman/8.0/en/select.html&quot; title=&quot;13.2.13 SELECT Statement&quot;&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;SELECT ... FOR UPDATE&lt;/code&gt;&lt;/a&gt; reads the latest available data, setting exclusive locks on each row it reads. Thus, it sets the same locks a searched SQL &lt;a href=&quot;https://dev.mysql.com/doc/refman/8.0/en/update.html&quot; title=&quot;13.2.17 UPDATE Statement&quot;&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;UPDATE&lt;/code&gt;&lt;/a&gt; would set on the rows.&lt;/p&gt;
+
+  &lt;p&gt;The preceding description is merely an example of how &lt;a href=&quot;https://dev.mysql.com/doc/refman/8.0/en/select.html&quot; title=&quot;13.2.13 SELECT Statement&quot;&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;SELECT ... FOR UPDATE&lt;/code&gt;&lt;/a&gt; works. In MySQL, the specific task of generating a unique identifier actually can be accomplished using only a single access to the table:&lt;/p&gt;
+&lt;/blockquote&gt;
+
+&lt;div class=&quot;language-sql highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;k&quot;&gt;UPDATE&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;child_codes&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;SET&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;counter_field&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;LAST_INSERT_ID&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;counter_field&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;+&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;1&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;   
+&lt;span class=&quot;k&quot;&gt;SELECT&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;LAST_INSERT_ID&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;();&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;示例：&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/images/2023-07/Pasted%20image%2020230812170259.png&quot; alt=&quot;&quot; /&gt;
+对于不存在的索引列，附近行（GAP）。&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/images/2023-07/Pasted%20image%2020230812173007.png&quot; alt=&quot;&quot; /&gt;
+对于存在的索引列，会锁住当前行（RECORD）和附近行（GAP）。&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/images/2023-07/Pasted%20image%2020230812174155.png&quot; alt=&quot;&quot; /&gt;
+对于范围查询，会锁住符合条件行（RECORD）和附件行（GAP）。&lt;/p&gt;
+
+&lt;h1 id=&quot;innodb-data-locking&quot;&gt;InnoDB Data Locking&lt;/h1&gt;
+
+&lt;p&gt;https://dev.mysql.com/blog-archive/innodb-data-locking-part-1-introduction/
+https://dev.mysql.com/blog-archive/innodb-data-locking-part-2-locks/
+https://dev.mysql.com/blog-archive/innodb-data-locking-part-2-5-locks-deeper-dive/
+https://dev.mysql.com/blog-archive/innodb-data-locking-part-3-deadlocks/
+https://dev.mysql.com/blog-archive/innodb-data-locking-part-4-scheduling/
+https://dev.mysql.com/blog-archive/innodb-data-locking-part-5-concurrent-queues/&lt;/p&gt;</content><author><name></name></author><category term="Database" /><summary type="html">叙述与分析MySQL的一些锁现象和原理</summary></entry><entry><title type="html">How does Stable Diffusion work</title><link href="https://sakaman.github.io/reading/2023/06/30/How-does-Stable-Diffusion-work/" rel="alternate" type="text/html" title="How does Stable Diffusion work" /><published>2023-06-30T00:00:00+00:00</published><updated>2023-06-30T00:00:00+00:00</updated><id>https://sakaman.github.io/reading/2023/06/30/How%20does%20Stable%20Diffusion%20work</id><content type="html" xml:base="https://sakaman.github.io/reading/2023/06/30/How-does-Stable-Diffusion-work/">&lt;p&gt;本文翻译 https://stable-diffusion-art.com/how-stable-diffusion-work/&lt;/p&gt;
+
+&lt;p&gt;Stable Diffusion: 稳定扩散&lt;/p&gt;
+
+&lt;p&gt;Stable Diffusion是一种深度学习模型。&lt;/p&gt;
+
+&lt;h1 id=&quot;稳定扩散能做什么&quot;&gt;稳定扩散能做什么&lt;/h1&gt;
+
+&lt;p&gt;最简单的形式，稳定扩散是一种文本到图像模型（text-to-image）。给它一个文字提示（text prompt），将返回与文本匹配的图像。
+&lt;img src=&quot;/assets/images/Stable Diffusion/Pasted%20image%2020230703233013.png&quot; alt=&quot;Stable diffusion将文字提示转变成图像&quot; /&gt;&lt;/p&gt;
+
+&lt;h1 id=&quot;扩散模型&quot;&gt;扩散模型&lt;/h1&gt;
+
+&lt;p&gt;Stable Diffusion属于一类称为扩散模型（diffusion models）的深度学习模型，是旨在生成与训练中类似数据的生成模型。在稳定Stable Diffusion的情况下，数据是图像。&lt;/p&gt;
+
+&lt;p&gt;为什么称为扩散模型？是由于它的数学看起来像物理学中的扩散。&lt;/p&gt;
+
+&lt;p&gt;假设只用两张图训练了一个扩散模型：猫和狗。在下图中，左边的两个峰代表猫和狗图像组。&lt;/p&gt;
+
+&lt;h2 id=&quot;前向扩散&quot;&gt;前向扩散&lt;/h2&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/images/Stable Diffusion/Pasted%20image%2020230704130912.png&quot; alt=&quot;前向扩散将照片变成噪声&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;前向扩散（Forward diffusion）过程中，向训练图像添加噪声，逐渐将其变成无特征的噪声图像。最终，将无法分辨图片最初是狗或者猫。&lt;/p&gt;
+
+&lt;p&gt;就像一滴墨水落入一杯水中，墨滴在水中扩散，几分钟后，随机分布在整个水中，无法判断最初是落在中心还是边缘附近。&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/images/Stable Diffusion/Pasted%20image%2020230704131550.png&quot; alt=&quot;猫图像的前向扩散&quot; /&gt;&lt;/p&gt;
+
+&lt;h2 id=&quot;反向扩散&quot;&gt;反向扩散&lt;/h2&gt;
+
+&lt;p&gt;如何逆转扩散？像倒放视频一样，倒退时间，将会看见墨滴最初滴落的位置。&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/images/Stable Diffusion/Pasted%20image%2020230704204244.png&quot; alt=&quot;反向扩散过程恢复图像&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;从技术上讲，每个扩散都有两个部分：（1）漂移（drift）、（2）随机运动（random）。反向扩散图像会偏向猫或狗，而不会介于两者中间。&lt;/p&gt;
+
+&lt;h1 id=&quot;训练是如何进行的&quot;&gt;训练是如何进行的&lt;/h1&gt;
+
+&lt;p&gt;反向扩散的想法是巧妙而优雅的。&lt;/p&gt;
+
+&lt;p&gt;为了反转扩散，需要知道图像中添加了多少噪声——通过训练神经网络模型来预测添加的噪声。在Stable Diffusion中，被称为噪声预测器——一个U-Net模型。训练过程如下：&lt;/p&gt;
+
+&lt;ol&gt;
+  &lt;li&gt;选择一张训练图像，比如猫。&lt;/li&gt;
+  &lt;li&gt;生成随机噪声图像。&lt;/li&gt;
+  &lt;li&gt;通过一定数量的步骤，添加噪声图片来破坏训练的图像。&lt;/li&gt;
+  &lt;li&gt;教噪声训练器反馈添加的噪声数量——通过调整权重并且向他展示正确答案。&lt;/li&gt;
+&lt;/ol&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/images/Stable Diffusion/Pasted%20image%2020230704214357.png&quot; alt=&quot;按步骤依次添加噪声，噪声预测器估算每一步添加的总噪声&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;训练后，具备一个能够估计添加到图像中的噪声的噪声预测器。&lt;/p&gt;
+
+&lt;h2 id=&quot;reverse-diffusion&quot;&gt;Reverse diffusion&lt;/h2&gt;
+
+&lt;p&gt;如何使用噪声预测器？&lt;/p&gt;
+
+&lt;p&gt;首先生成一个完全随机的图像，让噪声预测器告知噪声。然后从原始图像中减去估计的噪声，重复此过程几次，将获得猫或狗的图像。&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/images/Stable Diffusion/Pasted%20image%2020230704233511.png&quot; alt=&quot;反向扩散的工作原理是连续从图像中减去预测的噪声&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;但是目前无法控制生成猫或狗的图像，图像生成是无条件的。&lt;/p&gt;
+
+&lt;p&gt;有关反向扩散采样和采样器的&lt;a href=&quot;https://stable-diffusion-art.com/samplers/_&quot;&gt;更多信息&lt;/a&gt;。&lt;/p&gt;
+
+&lt;h1 id=&quot;稳定扩散模型&quot;&gt;稳定扩散模型&lt;/h1&gt;
+
+&lt;p&gt;上述扩散过程是在图像空间中进行的，不是稳定扩散的工作原理，无法在单个GPU上运行。&lt;/p&gt;
+
+&lt;p&gt;图像空间是巨大的。试想：三个颜色通道（红、蓝、绿）的512×512图像具有786432维的空间。&lt;/p&gt;
+
+&lt;p&gt;类似&lt;a href=&quot;https://imagen.research.google/&quot;&gt;Imagen&lt;/a&gt;和&lt;a href=&quot;https://openai.com/dall-e-2/&quot;&gt;DALL-E&lt;/a&gt;的扩散模型都在像素空间中，虽然使用了一些技巧来加速模型，但是仍然不够。&lt;/p&gt;
+
+&lt;h2 id=&quot;潜在扩散模型latent-diffusion-model&quot;&gt;潜在扩散模型（Latent diffusion model）&lt;/h2&gt;
+
+&lt;p&gt;Stable Diffusion旨在解决速度问题。&lt;/p&gt;
+
+&lt;p&gt;Stable Diffusion是一种潜在扩散模型。它不是在高维图像空间中操作，而是首先将图像压缩到潜在空间中。潜在空间小了48倍，因此降低了处理次数——变快的原因。&lt;/p&gt;
+
+&lt;h2 id=&quot;变分自动编码器variational-autoencoder&quot;&gt;变分自动编码器（Variational Autoencoder）&lt;/h2&gt;
+
+&lt;p&gt;上述过程是通过一种变分自动编码器的技术实现。&lt;/p&gt;
+
+&lt;p&gt;变分自动编码器神经网络有两部分：（1）编码器、（2）解码器。编码器将图像压缩为潜在空间中的低维表示，解码器从潜在空间中恢复图像。&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/images/Stable Diffusion/Pasted%20image%2020230705184739.png&quot; alt=&quot;变分自动编码器将图像转换到潜在空间或从潜在空间转换图像&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;稳定扩散模型的潜在空间是4×64×64，比图像像素空间小48倍。所有前向和反向扩散实际上都是在潜在空间中完成的。&lt;/p&gt;
+
+&lt;p&gt;因此，在训练过程中，不会生成噪声图像，而是在潜在空间（潜在噪声）中生成随机张量。不是用噪声破坏图像，而是用潜在噪声破坏图像在潜在空间中的表示。由于潜在空间小，所以速度快很多。&lt;/p&gt;
+
+&lt;h2 id=&quot;图像分辨率image-resolution&quot;&gt;图像分辨率（Image resolution）&lt;/h2&gt;
+
+&lt;p&gt;图像分辨率反映在潜在图像张量上，512×512图像的潜在图像大小仅为4×64×6，768×512肖像图的潜在图像为4×96×96。因此需要更长、更多的VRAM才能生成更大的图像。&lt;/p&gt;
+
+&lt;p&gt;由于Stable Diffusion v1是在512×512图像上进行了微调（fine-tuned），因此生成大于512×512的图像可能会得到重复的图像，比如两个头。如果是必须的，至少在一侧保留512像素，并用&lt;a href=&quot;https://stable-diffusion-art.com/ai-upscaler/&quot;&gt;AI升级器&lt;/a&gt;获得更高的分辨率。&lt;/p&gt;
+
+&lt;h2 id=&quot;为什么潜在空间是可能的why-is-latent-space-possible&quot;&gt;为什么潜在空间是可能的（Why is latent space possible）&lt;/h2&gt;
+
+&lt;p&gt;为什么VAE可以将图像压缩到更小的潜在空间而不丢失信息——原因是自然图像不是随机的，它们具有高度的规律性：面部遵循眼睛、鼻子、脸颊和嘴巴之间的特定空间关系。换而言之，图像的高维性是认为的。自然图像可以很容易地压缩到更小的潜在空间中，而不会丢失任何信息——在机器学习中被称为流行假设（manifold hypothesis）。&lt;/p&gt;
+
+&lt;h2 id=&quot;潜在空间中的反向扩散reverse-diffusion-in-latent-space&quot;&gt;潜在空间中的反向扩散（Reverse diffusion in latent space）&lt;/h2&gt;
+
+&lt;p&gt;稳定扩散中潜在反向扩散的工作原理：&lt;/p&gt;
+
+&lt;ol&gt;
+  &lt;li&gt;生成随机潜在空间矩阵。&lt;/li&gt;
+  &lt;li&gt;噪声预测器估算潜在矩阵的噪声。&lt;/li&gt;
+  &lt;li&gt;从潜在矩阵中减去估算的噪声。&lt;/li&gt;
+  &lt;li&gt;重复步骤2&amp;amp;3直至达到特定的采样步骤。&lt;/li&gt;
+  &lt;li&gt;VAE解码器将潜在矩阵转换为最终图像。&lt;/li&gt;
+&lt;/ol&gt;
+
+&lt;h2 id=&quot;vae文件是什么what-is-a-vae-file&quot;&gt;VAE文件是什么（What is a VAE file）&lt;/h2&gt;
+
+&lt;p&gt;在Stable Diffusion v1中，VAE文件被用来改善眼睛和面部，即前面提到的自动编码器的解码器。通过进一步微调解码器，模型可以绘制更精细的细节。&lt;/p&gt;
+
+&lt;p&gt;将图像压缩到潜在空间会丢失信息，是因为原始VAE无法恢复精细细节，但是，VAE解码器能够负责绘制精细的细节。&lt;/p&gt;
+
+&lt;h1 id=&quot;调理conditioning&quot;&gt;调理（Conditioning）&lt;/h1&gt;
+
+&lt;p&gt;目前我们的理解尚不完整：文字提示如何进入图片？没有文本，stable diffusion就不是text-to-image 模型，将会得到无法控制的猫或狗的图像。&lt;/p&gt;
+
+&lt;p&gt;所以需要用到调理——引导噪声预测器，以便在从图像中减去预测的噪声后，能够提供预想的图像。&lt;/p&gt;
+
+&lt;h2 id=&quot;文本调节text-conditioningtext-to-image&quot;&gt;文本调节（Text conditioning「text-to-image」）&lt;/h2&gt;
+
+&lt;p&gt;Tokenizer首先将提示中的每个单词转换为称为词元（token）的数字，然后每个token被转换为768个值的向量——嵌入（embedding）。这些embeddings随后由文本转换器（text transformer）进行处理，提供给噪声预测器使用。&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/images/Stable Diffusion/Pasted%20image%2020230705232627.png&quot; alt=&quot;如何处理文本提示并将其输入噪声预测器以引导图像生成&quot; /&gt;&lt;/p&gt;
+
+&lt;h3 id=&quot;分词器tokenizer&quot;&gt;分词器（Tokenizer）&lt;/h3&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/images/Stable Diffusion/Pasted%20image%2020230705233056.png&quot; alt=&quot;分词器&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;词元化（tokenization）是计算机理解单词的方式。人类可以读取文字，但是计算机只能读取数字，所以需要将文本提示中的单词转换为数字。&lt;/p&gt;
+
+&lt;p&gt;分词器只能对训练期间的单词进行分词。例如，CLIP模型中有“dream”和“beach”，但没有“dreambeanch”。分词器会将“dreambeach”一词分解为两个词元，“dream”和“beach”，所以一个词并不总意味一个词元。&lt;/p&gt;
+
+&lt;p&gt;另外空格字符也是词元的一部分。上述例子中，“dream beach”和“dreambeach”生成的词元不同。&lt;/p&gt;
+
+&lt;p&gt;Stable Diffusion模型仅限于在提示中使用75个词元。&lt;/p&gt;
+
+&lt;h3 id=&quot;嵌入embedding&quot;&gt;嵌入（Embedding）&lt;/h3&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/images/Stable Diffusion/Pasted%20image%2020230706234815.png&quot; alt=&quot;Embedding&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;Stable diffusion v1使用Open AI的ViT-L/14 Clip模型，其中Embedding是一个768个值的向量，每一个词元都有自己独特的嵌入向量。Embedding由在训练过程中学习的CLIP模型固定。&lt;/p&gt;
+
+&lt;p&gt;为什么需要embedding？因为有些词彼此之间密切相关，而我们想要利用这些信息。例如，man、gentleman、guy的嵌入几乎相同，因为它们可以互相转换使用。Monet、Manet、Degas都是用不同的方式以印象派风格作画，这些名称具有接近但不相同的嵌入。&lt;/p&gt;
+
+&lt;p&gt;这与使用关键词触发的嵌入相同，嵌入可以发挥魔法。科学家已经证实找到正确的嵌入可以触发任意对象和样式——一种称为文本反转（textual inversion）的微调技术。&lt;/p&gt;
+
+&lt;h3 id=&quot;将嵌入提供给噪声预测器feeding-embeddings-to-noise-predictor&quot;&gt;将嵌入提供给噪声预测器（Feeding embeddings to noise predictor）&lt;/h3&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/images/Stable Diffusion/Pasted%20image%2020230706235738.png&quot; alt=&quot;从嵌入到噪声预测器&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;在输入噪声预测器之前，嵌入需要由文本转换器（text transformer）进一步处理。transformer像一个通用适配器，输入文本嵌入向量，也可以像类标签、图像、深度图之类的其它东西。transformer不仅进一步处理数据，也提供提供一种包含不同调节模式/训练方式（conditioning modalities）的机制。&lt;/p&gt;
+
+&lt;h3 id=&quot;交叉注意力cross-attention&quot;&gt;交叉注意力（Cross-attention）&lt;/h3&gt;
+
+&lt;p&gt;整个U-Net中的噪声预测器多次使用文本转换器的输出，U-Net通过交叉注意力机制来消耗它，即提示（prompt）和图像（image）的结合处。&lt;/p&gt;
+
+&lt;p&gt;以提示“A man with blue eyes”为例，stable diffusion将“blue”、“eyes”两个词配对在一起（提示中的自我关注），这样即会生成一个蓝眼睛的男人，而不是一个穿蓝色衬衫的男人。然后，使用此信息引导反向扩散至包含蓝眼睛的图像（提示和图像之间的交叉注意力）。&lt;/p&gt;
+
+&lt;p&gt;旁注：超网络（Hypernetwork），一种调优稳定扩散模型的技术，通过劫持交叉注意力网络来插入样式。LoRA models修改交叉注意力模块的权重来改变风格，单独修改这个模块就可以调优Stable Diffusion模型。&lt;/p&gt;
+
+&lt;h2 id=&quot;其他条件other-conditionings&quot;&gt;其他条件（Other conditionings）&lt;/h2&gt;
+
+&lt;p&gt;文本提示并不是调节Stable Diffusion模型的唯一方法。文本提示（text prompt）和深度图像（depth image）都用于调节深度到图像（depth-to-image）模型。&lt;/p&gt;
+
+&lt;p&gt;ControlNet使用检测到的轮廓、人体姿势等来调节噪声预测器，并实现对图像生成的出色控制。&lt;/p&gt;
+
+&lt;h1 id=&quot;逐步稳定扩散stable-diffusion-step-by-step&quot;&gt;逐步稳定扩散（Stable Diffusion step-by-step）&lt;/h1&gt;
+
+&lt;h2 id=&quot;文本转图像text-to-image&quot;&gt;文本转图像（Text-to-image）&lt;/h2&gt;
+
+&lt;p&gt;在文本转图像中，给stable diffusion提供文本提示，将返回图像。&lt;/p&gt;
+
+&lt;p&gt;Step 1：Stable Diffusion在潜在空间中生成随机张量，可以通过设置随机数生成器种子在控制该张量。如果将种子设置为某个值，将始终获得相同的随机张量——即潜在空间中的图像，目前全是噪音。&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/images/Stable Diffusion/Pasted%20image%2020230707185212.png&quot; alt=&quot;在潜在空间中生成随机张量&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;Step 2：噪声预测器U-Net将潜在噪声图像和文本提示作为输入，并在潜在空间（一个4×64×64张量）中预测噪声。&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/images/Stable Diffusion/Pasted%20image%2020230707185345.png&quot; alt=&quot;&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;Step 3：从潜在空间中减去潜在噪声，得到新的潜像。&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/images/Stable Diffusion/Pasted%20image%2020230707185428.png&quot; alt=&quot;&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;重复步骤2&amp;amp;步骤3一定数量的采样步骤。&lt;/p&gt;
+
+&lt;p&gt;Step 4：最后，VAE的解码器将潜在图像转换回像素空间，得到运行稳定扩散后的图像。&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/images/Stable Diffusion/Pasted%20image%2020230707185557.png&quot; alt=&quot;&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;下面是图像在每个采样步骤中的演变方式。&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/images/Stable%20Diffusion/cat_euler_15.webp&quot; alt=&quot;每个采样步骤的图像&quot; /&gt;&lt;/p&gt;
+
+&lt;h2 id=&quot;噪音表noise-schedule&quot;&gt;噪音表（Noise schedule）&lt;/h2&gt;
+
+&lt;p&gt;图像从模糊变得清晰（noisy to clean），试图得到每个采样步骤中获得预期的噪声——噪声表（noise schedule）。&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/images/Stable Diffusion/Pasted%20image%2020230707190337.png&quot; alt=&quot;15个采样步骤的噪声表&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;噪声序列表是我们定义的，可以选择在每一步减去相同数量的噪声，或者在开始时减去更多。采样器在每一步中减去足够的噪声，以在下一步中达到预期噪声。&lt;/p&gt;
+
+&lt;h2 id=&quot;图像到图像image-to-image&quot;&gt;图像到图像（Image-to-image）&lt;/h2&gt;
+
+&lt;p&gt;Image-to-image是&lt;a href=&quot;https://arxiv.org/abs/2108.01073&quot;&gt;SDEdit&lt;/a&gt;方法中首次提出的方法，可应用于任何扩散模型。因此，我们有图像到图像的稳定扩散（潜在扩散模型）。&lt;/p&gt;
+
+&lt;p&gt;输入图像和文本提示被输入到image-to-image，生成的图像将受到输入图像和文本提示的限制。例如，使用这张业余绘画和提示“photo of perfect green apple with stem, water droplets, dramatic lighting”作为输入，图像到图像可以将其变成专业绘画。&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/images/Stable Diffusion/Pasted%20image%2020230707222138.png&quot; alt=&quot;图像到图像&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;下面是分布过程：&lt;/p&gt;
+
+&lt;p&gt;Step 1：输入图像被编码到潜在空间。&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/images/Stable Diffusion/Pasted%20image%2020230707222634.png&quot; alt=&quot;&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;Step 2：将噪声添加到潜像中，去噪强度（denoising strength）控制添加的噪声量。如果为0，不添加噪声；如果为1，添加最大量的噪声，使潜像称为完全随机的张量。&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/images/Stable Diffusion/Pasted%20image%2020230707223309.png&quot; alt=&quot;&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;Step 3：噪声预测器U-Net将潜在噪声图像和文本提示作为输入，并预测潜在空间（4×64×64张量）中的噪声。&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/images/Stable Diffusion/Pasted%20image%2020230707223512.png&quot; alt=&quot;&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;Step 4：从潜在图像中减去潜在噪声，变成新的潜像。&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/images/Stable Diffusion/Pasted%20image%2020230707224025.png&quot; alt=&quot;&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;重复步骤3&amp;amp;步骤4至采样步骤的一定数量。&lt;/p&gt;
+
+&lt;p&gt;Step 5：最后，VAE的解码器将潜像转换回像素空间，得到运行image-to-image后的图像。&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/images/Stable Diffusion/Pasted%20image%2020230707224502.png&quot; alt=&quot;&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;所以，图像到图像——设置带有一点噪声和一点输入图像的初始潜在图像，设置去噪强度为1相当于文本转图像，因为初始潜像完全是随机噪声。&lt;/p&gt;
+
+&lt;h2 id=&quot;修复&quot;&gt;修复&lt;/h2&gt;
+
+&lt;p&gt;修复只是图像到图像的一种特殊情况，噪声会被添加到想要修复的图像部分，噪声量同样有降噪强度控制。&lt;/p&gt;
+
+&lt;h2 id=&quot;深度到图像depth-to-image&quot;&gt;深度到图像（depth-to-image）&lt;/h2&gt;
+
+&lt;p&gt;深度到图像是图像到图像的增强，使用深度图（depth map）生成带有附加条件的新图像。&lt;/p&gt;
+
+&lt;p&gt;Step 1：输入图像被编码为潜在状态。&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/images/Stable Diffusion/Pasted%20image%2020230707225704.png&quot; alt=&quot;&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;Step 2：&lt;a href=&quot;https://github.com/isl-org/MiDaS&quot;&gt;MiDaS&lt;/a&gt;（一种AI深度模型）根据输入图像估算深度图。&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/images/Stable Diffusion/Pasted%20image%2020230707225815.png&quot; alt=&quot;&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;Step 3：将噪声添加到潜像中，去噪强度控制被添加的噪声量。如果去噪强度为0，不添加噪声；去噪强度为1，添加最大噪声，使得潜像变成随机张量。&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/images/Stable Diffusion/Pasted%20image%2020230707230140.png&quot; alt=&quot;&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;Step 4：噪声预测器根据文本提示和深度图估算潜在空间的噪声。&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/images/Stable Diffusion/Pasted%20image%2020230707230247.png&quot; alt=&quot;&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;Step 5：从潜像中减去潜在噪声，得到新的潜像。&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/images/Stable Diffusion/Pasted%20image%2020230707230315.png&quot; alt=&quot;&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;重复采样步骤数的步骤4&amp;amp;5。&lt;/p&gt;
+
+&lt;p&gt;Step 6：VAE的解码器对潜像进行解码，将获得从深度到图像的最终图像。&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/images/Stable Diffusion/Pasted%20image%2020230707230522.png&quot; alt=&quot;&quot; /&gt;&lt;/p&gt;
+
+&lt;h1 id=&quot;cfg值是什么what-is-cfg-value&quot;&gt;CFG值是什么（What is CFG value）&lt;/h1&gt;
+
+&lt;p&gt;无分类器指导（Classifier-Free Guidance）（CFG），前身：分类指导（classifier guidance）。&lt;/p&gt;
+
+&lt;h2 id=&quot;分类器指导classifier-guidance&quot;&gt;分类器指导（classifier guidance）&lt;/h2&gt;
+
+&lt;p&gt;&lt;a href=&quot;https://arxiv.org/abs/2105.05233&quot;&gt;分类器&lt;/a&gt;指导是一种将图像标签（image labels）合并到扩散模型中的方法，可以使用标签来指导扩散过程。例如，标签“cat”引导反向扩散过程生成猫的照片。&lt;/p&gt;
+
+&lt;p&gt;分类器指导尺度（classifier guidance scale）是控制扩散过程遵循标签程度的参数。&lt;/p&gt;
+
+&lt;p&gt;例如，假设有3组图像，标签为“cat”、“dog”、“human”。若扩散是无引导的，模型将从每组总的群体抽取样本，但是有时候可能会抽取适合两个标签的图像，比如一个男孩在抚摸一只狗。&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/images/Stable Diffusion/Pasted%20image%2020230708175140.png&quot; alt=&quot;分类器指导，左：无引导，中：小指导程度，有：大指导程度&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;在高分类器指导下，扩散模型生成的图像将偏向极端或明确的示例。如果向模型寻求一只猫，它会返回一张明确是猫的图像，除此之外别无他法。&lt;/p&gt;
+
+&lt;p&gt;分类器指导尺度控制指导的遵循程度。上图中，右边的采样比中间的采样具有更高的分类器指导尺度。实际上，该比例值只是带有该标签数据的漂移项的乘数。&lt;/p&gt;
+
+&lt;h2 id=&quot;无分类器指导classifier-free-guidance&quot;&gt;无分类器指导（classifier-free guidance）&lt;/h2&gt;
+
+&lt;p&gt;尽管分类器指导实现了破纪录的性能，但它需要一个额外的模型来提供该指导，这给训练带来了一些困难。&lt;/p&gt;
+
+&lt;p&gt;无分类指导（&lt;a href=&quot;**[Classifier-free guidance](https://arxiv.org/abs/2207.12598)**&quot;&gt;classifier-free guidance&lt;/a&gt;）是一种实现“没有分类器的分类器指导”的方法，没有使用类标签和单独的模型进行指导，而是使用图像标题训练条件扩散模型（conditional diffusion model），就像上述文本到图像的模型一样。&lt;/p&gt;
+
+&lt;p&gt;将分类器部分作为调节噪声预测器U-Net，实现图像生成中的“无分类器”指导。&lt;/p&gt;
+
+&lt;h3 id=&quot;cfg值cfg-value&quot;&gt;CFG值（CFG value）&lt;/h3&gt;
+
+&lt;p&gt;通过调节获得了一个无分类器扩散过程，如何控制遵循指导的量？&lt;/p&gt;
+
+&lt;p&gt;无分类器指导比例是一个控制文本提示对扩散过程影响程度的值，当值为0时，图像生成是无条件的（无提示），较高的值将引导扩散至提示。&lt;/p&gt;
+
+&lt;h1 id=&quot;stable-diffusion-v1-vs-v2&quot;&gt;Stable Diffusion v1 vs v2&lt;/h1&gt;
+
+&lt;h2 id=&quot;模型差异model-difference&quot;&gt;模型差异（Model difference）&lt;/h2&gt;
+
+&lt;p&gt;Stable Diffusion v2使用&lt;a href=&quot;https://stability.ai/blog/stable-diffusion-v2-release&quot;&gt;OpenClip&lt;/a&gt;进行文本嵌入，Stable Diffusion使用Open AI的CLIP &lt;a href=&quot;https://github.com/CompVis/stable-diffusion&quot;&gt;ViT-L/14&lt;/a&gt;进行文本嵌入：&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;OpenClip扩大了5倍更大的文本编码器模型可以提高图像质量。&lt;/li&gt;
+  &lt;li&gt;尽管Open AI的CLIP模型是开源的，但是这些模型使用专有数据进行训练。切换到OpenClip模型使研究和优化模型更透明，利于长远发展。&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;h2 id=&quot;训练数据差异training-data-difference&quot;&gt;训练数据差异（Training data difference）&lt;/h2&gt;
+
+&lt;p&gt;Stable Diffusion v1.4训练：&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;laion2B-en数据集上以256×256的分辨率进行237k步（237k steps at resolution 256×256 on &lt;a href=&quot;https://huggingface.co/datasets/laion/laion2B-en&quot;&gt;laion2B-en&lt;/a&gt; dataset.）&lt;/li&gt;
+  &lt;li&gt;laion-high-resolution上以512×512分辨率进行194k步（194k steps at resolution 512×512 on &lt;a href=&quot;https://huggingface.co/datasets/laion/laion-high-resolution&quot;&gt;laion-high-resolution&lt;/a&gt;.）&lt;/li&gt;
+  &lt;li&gt;文本调节降低10%，laion-aesthetics v2 5+上以512×512进行225k步（225k steps at 512×512 on “&lt;a href=&quot;https://laion.ai/blog/laion-aesthetics/&quot;&gt;laion-aesthetics v2 5+&lt;/a&gt;“, with 10% dropping of text conditioning.）&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;Stable Diffusion v2训练：&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;550k steps at the resolution &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;256x256&lt;/code&gt; on a subset of &lt;a href=&quot;https://laion.ai/blog/laion-5b/&quot;&gt;LAION-5B&lt;/a&gt; filtered for explicit pornographic material, using the &lt;a href=&quot;https://github.com/LAION-AI/CLIP-based-NSFW-Detector&quot;&gt;LAION-NSFW classifier&lt;/a&gt; with &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;punsafe=0.1&lt;/code&gt; and an &lt;a href=&quot;https://github.com/christophschuhmann/improved-aesthetic-predictor&quot;&gt;aesthetic score&lt;/a&gt; &amp;gt;= &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;4.5&lt;/code&gt;.&lt;/li&gt;
+  &lt;li&gt;850k steps at the resolution &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;512x512&lt;/code&gt; on the same dataset on images with resolution &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;&amp;gt;= 512x512&lt;/code&gt;.&lt;/li&gt;
+  &lt;li&gt;150k steps using a &lt;a href=&quot;https://arxiv.org/abs/2202.00512&quot;&gt;v-objective&lt;/a&gt; on the same dataset.&lt;/li&gt;
+  &lt;li&gt;Resumed for another 140k steps on &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;768x768&lt;/code&gt; images.&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;Stable Diffusion v2.1在v2.0上进行了微调：&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;additional 55k steps on the same dataset (with &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;punsafe=0.1&lt;/code&gt;)&lt;/li&gt;
+  &lt;li&gt;another 155k extra steps with &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;punsafe=0.98&lt;/code&gt;&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;所以基本上，都在最后的训练步骤中关闭了NSFW过滤器。&lt;/p&gt;
+
+&lt;h2 id=&quot;结果差异outcome-difference&quot;&gt;结果差异（Outcome difference）&lt;/h2&gt;
+
+&lt;p&gt;用户通常发现使用Stable Diffusion v2来控制风格和生成名人更困难，尽管Stability AI没有明确过滤艺术家和名人的名字，但是它们的效果在v2中很弱，可能是由于训练数据的差异造成的。Open AI的专有数据可能有更多艺术品和名人照片，数据可经过贵都过滤，因此看起来都更好。&lt;/p&gt;</content><author><name></name></author><category term="Reading" /><summary type="html">本文翻译 https://stable-diffusion-art.com/how-stable-diffusion-work/</summary></entry><entry><title type="html">What Is a Transformer Model</title><link href="https://sakaman.github.io/reading/2023/06/30/The-Illustrated-Transformer/" rel="alternate" type="text/html" title="What Is a Transformer Model" /><published>2023-06-30T00:00:00+00:00</published><updated>2023-06-30T00:00:00+00:00</updated><id>https://sakaman.github.io/reading/2023/06/30/The%20Illustrated%20Transformer</id><content type="html" xml:base="https://sakaman.github.io/reading/2023/06/30/The-Illustrated-Transformer/">&lt;p&gt;本文翻译自：&lt;/p&gt;
+&lt;ul&gt;
+  &lt;li&gt;https://blogs.nvidia.com/blog/2022/03/25/what-is-a-transformer-model/&lt;/li&gt;
+  &lt;li&gt;http://jalammar.github.io/illustrated-transformer/&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;h1 id=&quot;transformer模型是什么&quot;&gt;Transformer模型是什么？&lt;/h1&gt;
+
+&lt;p&gt;Transformer模型是一种神经网络，通过跟踪连续数据中的关系来学习上下文并从理解含义。&lt;/p&gt;
+
+&lt;p&gt;Transformer模型应用一组称为注意或者自注意（attention or self-attention）的数学技术，来检测疏远数据元素（distant data elements）之间不明显的一系列相互影响、依赖的方式。&lt;/p&gt;
+
+&lt;p&gt;Google 2017年的一篇&lt;a href=&quot;https://arxiv.org/abs/1706.03762&quot;&gt;论文&lt;/a&gt;首次描述了&lt;a href=&quot;[guide annotating the paper with PyTorch implementation](http://nlp.seas.harvard.edu/2018/04/03/attention.html)&quot;&gt;Transformer&lt;/a&gt;，它是迄今为止被发明的模型中最新、最强大的类别之一。推动着机器学习领域的进步，有些被称为“变形人工智能”（transformer AI）。&lt;/p&gt;
+
+&lt;p&gt;斯坦福大学的研究人员在2021年8月的一篇&lt;a href=&quot;[August 2021 paper](https://arxiv.org/pdf/2108.07258.pdf)&quot;&gt;论文&lt;/a&gt;中将Transformer称为“基础模型”（foundation models）。&lt;/p&gt;
+
+&lt;h1 id=&quot;transformer模型能做什么&quot;&gt;Transformer模型能做什么？&lt;/h1&gt;
+
+&lt;p&gt;Transformer可以近实时地翻译文本和语音，向多元化和听力障碍的与会人员开放会议和课堂。&lt;/p&gt;
+
+&lt;p&gt;帮助研究人员了解DNA中的基因链和蛋白质中的氨基酸，从而加快药物设计。&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/images/2023-06/Transformer%20Application.png&quot; alt=&quot;Transformer, sometimes called foundation models, are already being used with many data sources for a host of applications&quot; /&gt;&lt;/p&gt;
+
+&lt;h1 id=&quot;高层级视角a-high-level-look&quot;&gt;高层级视角（A High-Level Look）&lt;/h1&gt;
+
+&lt;p&gt;首先将该模型视为一个黑盒，在机器翻译应用程序中，输入一种语言，返回另一种语言。&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/images/2023-06/Pasted%20image%2020230709232455.png&quot; alt=&quot;&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;解剖中间，可以得到一个编码组件、一个解码组件以及它们间的链接。&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/images/2023-06/Pasted%20image%2020230709232826.png&quot; alt=&quot;&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;编码组件是一堆编码器，解码组件是相同数量解码器的堆栈。&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/images/2023-06/Pasted%20image%2020230710235303.png&quot; alt=&quot;&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;这些解码器的结构是相同的（不共享权重），每一层分为两个子层：&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/images/2023-06/Pasted%20image%2020230711000038.png&quot; alt=&quot;&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;编码器的输入首先流经自注意层——帮助编码器在对特定单词编码时查看输入句子中的其他单词。自注意层的输出被馈送到前馈神经网络（feed-forward neural network），独立应用完全相同的前馈神经网络到每个位置。&lt;/p&gt;
+
+&lt;p&gt;解码器具有这两层，但中间有一个帮助解码器关注输入句子的相关部分的注意层。&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/images/2023-06/Pasted%20image%2020230711000603.png&quot; alt=&quot;&quot; /&gt;&lt;/p&gt;
+
+&lt;h1 id=&quot;张量代入图片bringing-the-tensors-into-the-picture&quot;&gt;张量代入图片（Bringing The Tensors Into The Picture）&lt;/h1&gt;
+
+&lt;p&gt;接下来了解各种向量/张量以及他们如何在这些组件之间流动，将训练模型的输入转换为输出。&lt;/p&gt;
+
+&lt;p&gt;与NLP应用中的一般情况一样，首先使用嵌入算法（&lt;a href=&quot;https://medium.com/deeper-learning/glossary-of-deep-learning-word-embedding-f90c3cec34ca&quot;&gt;embedding algorithm&lt;/a&gt;）将每个单词转换为向量。&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/images/2023-06/Pasted%20image%2020230711130619.png&quot; alt=&quot;每个单词都嵌入到大小为512的向量中&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;嵌入（embedding）仅发生在最底部的编码器中。所有编码器共有的抽象是，接收每个大小为512的向量列表——在底部编码器中，会是单词嵌入，但在其他编码器中，将是下面编码器的输出。列表的大小可以设置——基本上是训练数据集中最长句子的长度。将单词嵌入到输入序列后，每个单词都回流经编码器的两层。&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/images/2023-06/Pasted%20image%2020230711131100.png&quot; alt=&quot;&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;这里有Transformer的一个关键属性，即每个位置的单词在编码器中都流经自有路径。自注意层在这些路径中存在依赖关系。然而，前馈层不具有这些依赖性，因此各种路径可以在流经前馈层时并行处理。&lt;/p&gt;
+
+&lt;h1 id=&quot;编码encoding&quot;&gt;编码（Encoding）&lt;/h1&gt;
+
+&lt;p&gt;编码器接收向量列表作为输入，通过将这些向量传递到“自注意”层（self-attention layer），然后传递到前馈神经网络，将输出向上发送到下一个编码器来处理。&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/images/2023-06/Pasted%20image%2020230711131515.png&quot; alt=&quot;每个位置的单词都会经过一个自注意过程，然后通过前馈神经网络——每个向量分别流经的完全相同的网络&quot; /&gt;&lt;/p&gt;
+
+&lt;h1 id=&quot;高层次自注意self-attention-at-a-high-level&quot;&gt;高层次自注意（Self-attention at a High Level）&lt;/h1&gt;
+
+&lt;p&gt;当模型处理每个单词（输入序列中的每个位置）时，自注意允许它查看输入序列中的其他位置来寻找有助于更好地编码该单词的线索。&lt;/p&gt;
+
+&lt;p&gt;自注意是Transformer用来将其他相关单词的“理解”融入正在处理的单词中的方法。&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/images/2023-06/Pasted%20image%2020230711232519.png&quot; alt=&quot;&quot; /&gt;&lt;/p&gt;
+&lt;center&gt;当在编码器#5（堆栈中的顶部编码器）中对单词“it”进行编码时，注意机制的一部分集中在“The Animal”上，并将其表示的一部分聚集到“it”的编码中&lt;/center&gt;
+
+&lt;h1 id=&quot;自注意细节self-attention-in-detail&quot;&gt;自注意细节（Self-Attention in Detail）&lt;/h1&gt;
+
+&lt;p&gt;下文分析如何使用向量计算自注意，与如何使用矩阵实现。&lt;/p&gt;
+
+&lt;p&gt;计算自注意力的第一步是从每个编码器的输入向量创建三个向量，因此，对于每个单词，创建一个查询向量（Query vector）、一个键向量（Key vector）、一个值向量（Value vector）。通过将嵌入（embedding）乘以在训练过程中训练的三个矩阵创建这些向量。这些新向量的维度小于嵌入向量——维度为64，而嵌入与编码器的输入、输出向量的维度为512——这是一种架构选择，可以使多头注意力的计算（大部分）保持恒定。&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/images/2023-06/Pasted%20image%2020230717124508.png&quot; alt=&quot;&quot; /&gt;&lt;/p&gt;
+&lt;center&gt;将x1乘以WQ权重矩阵得到q1，即与该单词关联的“查询”向量。最终为输入句子中的每个单词创建一个“查询”、“键”、“值”投影&lt;/center&gt;
+
+&lt;p&gt;第二步是计算分数，假设计算单词“Thinking”的自注意力，需要根据输入句子的每个单词对这个单词进行评分。当在某个位置对单词进行编码时，分数决定了对输入句子的其他部分的关注程度。分数是通过计算查询向量（query vector）与需要评分的单词的键向量（key vector）的点积（dot product）得到。因此，如果计算处理位置#1中单词的自注意力，第一个分数将是q1和k1的点积，第二个分数是q1和k2的点积。&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/images/2023-06/Pasted%20image%2020230717125946.png&quot; alt=&quot;&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;第三步和第四步将这些分数除以8（键向量维度的平方根是64（默认值），使梯度更稳定，也可以是其他值），然后将结果传递给softmax运算（softmax operation）。Softmax对分数进行归一化，使它们全部为正数并且总和为1。&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/images/2023-06/Pasted%20image%2020230717130347.png&quot; alt=&quot;&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;softmax分数决定了每个单词在这个位置上的表述量。显然，单词所在位置具有最高的softmax分数，但有时关注与当前单词相关的另一个单词是有用的。&lt;/p&gt;
+
+&lt;p&gt;第五步，将每个值向量（value vector）乘以softmax分数，很直观地保持关注单词的完整性，并覆盖不相关的单词（比如将它们乘以0.001这样的小数字）。&lt;/p&gt;
+
+&lt;p&gt;第六步，对加权值向量（weighted value）求和，产生该位置自注意力层的输出。&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/images/2023-06/Pasted%20image%2020230717131014.png&quot; alt=&quot;&quot; id=&quot;calculate6&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;自注意力层计算得到的向量可以发送到前馈神经网络。在实际中，可以通过矩阵形式计算，更快的处理。&lt;/p&gt;
+
+&lt;h1 id=&quot;自注意的矩阵计算matrix-calculation-of-self-attention&quot;&gt;自注意的矩阵计算（Matrix Calculation of Self-Attention）&lt;/h1&gt;
+
+&lt;p&gt;第一步，计算查询、键、值矩阵。将嵌入（embedding）打包到矩阵X中，并乘以已训练过的权重矩阵（WQ、WK、WV）。&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/images/2023-06/Pasted%20image%2020230717192208.png&quot; alt=&quot;&quot; /&gt;&lt;/p&gt;
+&lt;center&gt;X矩阵中的每一行对应于输入句子中的一个单词&lt;/center&gt;
+
+&lt;p&gt;最后，由于处理的是矩阵，可以将第二步到第六步压缩为一个公式来计算自注意层的输出。&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/images/2023-06/Pasted%20image%2020230717192425.png&quot; alt=&quot;&quot; /&gt;&lt;/p&gt;
+&lt;center&gt;矩阵形式的self-attention计算&lt;/center&gt;
+
+&lt;h1 id=&quot;the-beast-with-many-heads&quot;&gt;The Beast With Many Heads&lt;/h1&gt;
+
+&lt;p&gt;论文通过“多头”注意力机制进一步细化自注意层，通过下面两种方式提高注意层的性能：&lt;/p&gt;
+
+&lt;ol&gt;
+  &lt;li&gt;扩展模型关注不同位置的能力。&lt;a href=&quot;#calculate6&quot;&gt;z1&lt;/a&gt;包含一些其他编码，但它可能由实际单词本身主导。&lt;/li&gt;
+  &lt;li&gt;为注意层提供了多个“表示子空间”（representation subspaces）。通过多头注意，不只拥有一组查询/键/值权重矩阵，而是拥有多组查询/键/值权重矩阵（Transformer使用八个注意头，因此最终为每个编码器/解码器提供八组）。这些集合中的每一个都是随机初始化的。然后，在训练之后，每个集合用于将输入嵌入（或来自较低编码器/解码器的向量）投影到不同的表示子空间中。&lt;/li&gt;
+&lt;/ol&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/images/2023-06/Pasted%20image%2020230717234818.png&quot; alt=&quot;&quot; /&gt;&lt;/p&gt;
+&lt;center&gt;通过多头注意，为每个头维护单独的Q/K/V权重矩阵，从而产生不同的Q/K/V矩阵&lt;/center&gt;
+
+&lt;p&gt;如果进行上图相同的自注意计算，只需用不同的权重矩阵进行八次不同的计算，最终得到八个不同的Z矩阵。&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/images/2023-06/Pasted%20image%2020230717235537.png&quot; alt=&quot;&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;而前馈层不需要八个矩阵——只需要一个矩阵（每个单词一个向量），所以需要一种方法将这八个压缩乘一个矩阵。将矩阵连接起来，然后乘以一个附加权重矩阵WO。&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/images/2023-06/Pasted%20image%2020230717235732.png&quot; alt=&quot;&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;这几乎便是多头注意的全部内容。&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/images/2023-06/Pasted%20image%2020230717235854.png&quot; alt=&quot;&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;对示例句子的“it”进行编码时，不同注意头聚焦的位置。&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/images/2023-06/Pasted%20image%2020230718000315.png&quot; alt=&quot;&quot; /&gt;&lt;/p&gt;
+&lt;center&gt;对“it”进行编码时，一个注意头主要关注“animal”，而另一个注意头关注“tired”。从某种意义上，模型对“it”的表征会包含一些“animal”和“tired”的表征&lt;/center&gt;
+
+&lt;p&gt;如果将所有注意头添加到图片中，将会更难解释：&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/images/2023-06/Pasted%20image%2020230718000707.png&quot; alt=&quot;&quot; /&gt;&lt;/p&gt;
+
+&lt;h1 id=&quot;使用位置编码表示序列的顺序representing-the-order-of-the-sequence-using-positional-encoding&quot;&gt;使用位置编码表示序列的顺序（Representing The Order of The Sequence Using Positional Encoding）&lt;/h1&gt;
+
+&lt;p&gt;到目前为止，模型缺少一种解释输入序列中单词顺序的方法。为解决这个问题，transformer向每个输入嵌入添加一个向量。这些向量遵循模型学习的特定模式，有助于确认每个单词的位置，或序列中不同单词之间的距离。&lt;/p&gt;
+
+&lt;p&gt;在嵌入向量投影到Q/K/V向量和点积注意时，将这些值添加到嵌入向量中，就可以提供有意义的距离。&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/images/2023-06/Pasted%20image%2020230718232535.png&quot; alt=&quot;&quot; /&gt;&lt;/p&gt;
+&lt;center&gt;为了让模型理解单词的顺序，添加位置编码向量——值遵循特定的模式&lt;/center&gt;
+
+&lt;p&gt;假设嵌入维数为4，则实际的位置编码如下：&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/images/2023-06/Pasted%20image%2020230718232958.png&quot; alt=&quot;&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;下图中，每一行对应一个向量的位置编码。因此，第一行将是输入序列中添加到第一个单词嵌入的向量。每一行包含512个值，每个值介入1和-1之间。&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/images/2023-06/Pasted%20image%2020230718233305.png&quot; alt=&quot;&quot; /&gt;&lt;/p&gt;
+&lt;center&gt;嵌入大小为512（列）的20个单词（行）的位置编码。左半部分的值由正弦函数生成，右半部分由余弦函数生成，连接起来行程每个位置编码向量&lt;/center&gt;
+
+&lt;h1 id=&quot;残差the-residuals&quot;&gt;残差（The Residuals）&lt;/h1&gt;
+
+&lt;p&gt;每个编码器中的每个子层（自注意，ffnn）周围都有一个残差连接，并且后面是层归一化步骤。&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/images/2023-06/Pasted%20image%2020230718233744.png&quot; alt=&quot;&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;可视化自注意相关的向量和层范数操作（layer-norm operation）：&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/images/2023-06/Pasted%20image%2020230718233839.png&quot; alt=&quot;&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;同样适用于解码器的子层——一个由2个堆叠编码器和解码器组成的Transformer：&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/images/2023-06/Pasted%20image%2020230718234339.png&quot; alt=&quot;&quot; /&gt;&lt;/p&gt;
+
+&lt;h1 id=&quot;解码器端the-decoder-side&quot;&gt;解码器端（The Decoder Side）&lt;/h1&gt;
+
+&lt;p&gt;编码器首先处理输入序列，然后顶部编码器的输出被转换为一组注意向量K和V。每个解码器在其“编码器-解码器注意（encoder-decoder attention）”使用这些向量，有助于解码器关注输入序列中的适当位置。&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/images/2023-06/transformer_decoding_1.gif&quot; alt=&quot;&quot; /&gt;&lt;/p&gt;
+
+&lt;center&gt;完成编码阶段后，开始解码阶段。解码阶段的每个步骤都会输出输出序列中的一个元素&lt;/center&gt;
+
+&lt;p&gt;接下来重复这一过程，直到出现一个特殊符号，表明transfomer解码器已完成输出。每个步骤的输出都会在下一时间点的步骤馈送到底部解码器，解码器会像编码器一样向上传递结果。&lt;/p&gt;
+
+&lt;p&gt;像对编码器输入所做的那样，在解码器输入中嵌入并添加位置编码，以指示每个单词的位置。&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/images/2023-06/transformer_decoding_2.gif&quot; alt=&quot;&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;解码器中的自关注层运行方式与编码器中的运行方式略有不同：&lt;/p&gt;
+
+&lt;p&gt;在解码器中，自注意层只允许关注输出序列中较早的位置——通过在自注意计算的softmax步骤前屏蔽未来位置（设置为&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;-inf&lt;/code&gt;）。&lt;/p&gt;
+
+&lt;p&gt;“Encoder-Decoder Attention”层的工作方式与multiheaded self-attention类似，只不过它是从其下面层创建查询矩阵，并从编码器堆栈的输出中获取键和值矩阵。&lt;/p&gt;
+
+&lt;h1 id=&quot;最后的线性和softmax层the-final-linear-and-softmax-layer&quot;&gt;最后的线性和Softmax层（The Final Linear and Softmax Layer）&lt;/h1&gt;
+
+&lt;p&gt;解码器堆栈输出浮点数向量，最后的Linear层将其变成单词，跟随在后面的是softmax层。&lt;/p&gt;
+
+&lt;p&gt;线性层是一个简单的全连接神经网络，它将解码器堆栈产生的向量投影到一个更大的向量中，称为logits向量。假设模型知道从训练数据集中学习10000个不同的英文单词（模型的“输出词汇”），将使logits向量有10000个单元格宽度——每个单元格对应一个唯一的分数。然后，softmax层将这些分数转换为概率（全部为正数，加总为1.0）。选择概率最高的单元格，与之相联单词作为该时间步骤的输出结果。&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/images/2023-06/Pasted%20image%2020230719130302.png&quot; alt=&quot;&quot; /&gt;&lt;/p&gt;
+&lt;center&gt;从底部开始，生成作为解码器堆栈输出的向量，然后转换为输出单词&lt;/center&gt;
+
+&lt;h1 id=&quot;回顾训练recap-of-training&quot;&gt;回顾训练（Recap Of Training）&lt;/h1&gt;
+
+&lt;p&gt;在训练模型期间，未经训练的模型将经历完全相同的前向传递，但由于是在标记的训练数据集上进行训练，可以将其输出与实际的证券输出进行比较。&lt;/p&gt;
+
+&lt;p&gt;形象化这一点，假设输出词汇仅包含六个单词（”a”, “am”, “i”, “thanks”, “student”, “&amp;lt;\eos&amp;gt;”(‘end of sentence’)）：&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/images/2023-06/Pasted%20image%2020230719130950.png&quot; alt=&quot;&quot; /&gt;&lt;/p&gt;
+&lt;center&gt;模型的输出词汇是在开始训练之前的预处理阶段创建的&lt;/center&gt;
+
+&lt;p&gt;一旦定义了输出词汇表，可以使用相同宽度的向量来表示词汇表中的每个单词，称为one-shot编码：&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/images/2023-06/Pasted%20image%2020230719131207.png&quot; alt=&quot;&quot; /&gt;&lt;/p&gt;
+&lt;center&gt;输出词汇的one-shot编码&lt;/center&gt;
+
+&lt;h1 id=&quot;损失函数the-loss-function&quot;&gt;损失函数（The Loss Function）&lt;/h1&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/images/2023-06/Pasted%20image%2020230719131335.png&quot; alt=&quot;&quot; /&gt;&lt;/p&gt;
+&lt;center&gt;由于模型的参数（权重）都是随机初始化的，（未经训练的）模型会生成每个单元格/单词的任意值概率分布。可以将其与实际输出进行比较，然后使用反向传播调整所有模型的权重，使输出更接近所需的输出&lt;/center&gt;
+
+&lt;p&gt;如何比较两个概率分布？只需将其中一个减去另一个即可，可参考&lt;a href=&quot;https://colah.github.io/posts/2015-09-Visual-Information/&quot;&gt;cross-entropy&lt;/a&gt; 和 &lt;a href=&quot;https://www.countbayesie.com/blog/2017/5/9/kullback-leibler-divergence-explained&quot;&gt;Kullback–Leibler divergence&lt;/a&gt;。&lt;/p&gt;
+
+&lt;p&gt;更现实的是，使用比一个单词长的句子。例如，输入：“je suis étudiant”，预期输出：“i am a student”。意味着希望模型能够连续输出概率分布：&lt;/p&gt;
+&lt;ul&gt;
+  &lt;li&gt;每个概率宽度由宽度为vocab_size的向量表示&lt;/li&gt;
+  &lt;li&gt;第一个概率分布在与单词“i”相关的单元格中具有最高的概率&lt;/li&gt;
+  &lt;li&gt;第二个概率分布在与单词“am”相关的单元格中具有更高的概率&lt;/li&gt;
+  &lt;li&gt;以此类推，直到第五个输出输出分布“end of sentences”符号，在10000个元素的词汇表中也有一个与之关联的单元格&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/images/2023-06/Pasted%20image%2020230719132305.png&quot; alt=&quot;&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;在足够大的数据集上训练模型足够长的时间后，期望生成的概率分布：&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/images/2023-06/Pasted%20image%2020230719233634.png&quot; alt=&quot;&quot; /&gt;&lt;/p&gt;
+
+&lt;center&gt;经过训练后，期望模型能够输出期望的翻译。每个位置都有概率，即使不太可能是该时间步的输出——非常有用的softmax的一个属性，有助于训练过程&lt;/center&gt;
+
+&lt;p&gt;此时，模型一次产生一个输出，可以假设模型从该概率分布中选择概率最高的单词，并丢弃其余的单词——贪婪解码方法（greedy decoding）。&lt;/p&gt;
+
+&lt;p&gt;另一种方法是保留最上面的两个单词（‘I’，‘a’），在下一步中运行模型两次：一次假设第一个输出位置是‘I’，另一次假设是‘a’，并且考虑位置#1、#2，保留产生较少错误的版本。重复#2、#3等位置——束搜索（beam search）。这些都是可以实验的超参数（hyperparameters）。&lt;/p&gt;
+
+&lt;h1 id=&quot;延伸阅读&quot;&gt;延伸阅读&lt;/h1&gt;
+
+&lt;p&gt;I hope you’ve found this a useful place to start to break the ice with the major concepts of the Transformer. If you want to go deeper, I’d suggest these next steps:&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;Read the &lt;a href=&quot;https://arxiv.org/abs/1706.03762&quot;&gt;Attention Is All You Need&lt;/a&gt; paper, the Transformer blog post (&lt;a href=&quot;https://ai.googleblog.com/2017/08/transformer-novel-neural-network.html&quot;&gt;Transformer: A Novel Neural Network Architecture for Language Understanding&lt;/a&gt;), and the &lt;a href=&quot;https://ai.googleblog.com/2017/06/accelerating-deep-learning-research.html&quot;&gt;Tensor2Tensor announcement&lt;/a&gt;.&lt;/li&gt;
+  &lt;li&gt;Watch &lt;a href=&quot;https://www.youtube.com/watch?v=rBCqOTEfxvg&quot;&gt;Łukasz Kaiser’s talk&lt;/a&gt; walking through the model and its details&lt;/li&gt;
+  &lt;li&gt;Play with the &lt;a href=&quot;https://colab.research.google.com/github/tensorflow/tensor2tensor/blob/master/tensor2tensor/notebooks/hello_t2t.ipynb&quot;&gt;Jupyter Notebook provided as part of the Tensor2Tensor repo&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;Explore the &lt;a href=&quot;https://github.com/tensorflow/tensor2tensor&quot;&gt;Tensor2Tensor repo&lt;/a&gt;.&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;Follow-up works:&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;&lt;a href=&quot;https://arxiv.org/abs/1706.03059&quot;&gt;Depthwise Separable Convolutions for Neural Machine Translation&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;https://arxiv.org/abs/1706.05137&quot;&gt;One Model To Learn Them All&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;https://arxiv.org/abs/1801.09797&quot;&gt;Discrete Autoencoders for Sequence Models&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;https://arxiv.org/abs/1801.10198&quot;&gt;Generating Wikipedia by Summarizing Long Sequences&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;https://arxiv.org/abs/1802.05751&quot;&gt;Image Transformer&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;https://arxiv.org/abs/1804.00247&quot;&gt;Training Tips for the Transformer Model&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;https://arxiv.org/abs/1803.02155&quot;&gt;Self-Attention with Relative Position Representations&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;https://arxiv.org/abs/1803.03382&quot;&gt;Fast Decoding in Sequence Models using Discrete Latent Variables&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;https://arxiv.org/abs/1804.04235&quot;&gt;Adafactor: Adaptive Learning Rates with Sublinear Memory Cost&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;</content><author><name></name></author><category term="Reading" /><summary type="html">本文翻译自： https://blogs.nvidia.com/blog/2022/03/25/what-is-a-transformer-model/ http://jalammar.github.io/illustrated-transformer/</summary></entry><entry><title type="html">阅读论文的方法</title><link href="https://sakaman.github.io/reading/2023/06/28/%E9%98%85%E8%AF%BB%E8%AE%BA%E6%96%87%E7%9A%84%E6%96%B9%E6%B3%95/" rel="alternate" type="text/html" title="阅读论文的方法" /><published>2023-06-28T00:00:00+00:00</published><updated>2023-06-28T00:00:00+00:00</updated><id>https://sakaman.github.io/reading/2023/06/28/%E9%98%85%E8%AF%BB%E8%AE%BA%E6%96%87%E7%9A%84%E6%96%B9%E6%B3%95</id><content type="html" xml:base="https://sakaman.github.io/reading/2023/06/28/%E9%98%85%E8%AF%BB%E8%AE%BA%E6%96%87%E7%9A%84%E6%96%B9%E6%B3%95/">&lt;p&gt;阅读论文的方法&lt;/p&gt;
+
+&lt;p&gt;日常需要通过阅读各种论文来了解最新的、前沿的知识与技术，或者研读经典，来增强视野与技能。&lt;/p&gt;
+
+&lt;p&gt;本文主要翻译总结一些阅读论文的方法论文章。&lt;/p&gt;
+
+&lt;h2 id=&quot;how-to-read-an-academic-article&quot;&gt;How to Read an Academic Article&lt;/h2&gt;
+
+&lt;blockquote&gt;
+  &lt;p&gt;翻译文章: https://organizationsandmarkets.com/2010/08/31/how-to-read-an-academic-article/&lt;/p&gt;
+&lt;/blockquote&gt;
+
+&lt;h3 id=&quot;浏览阅读处理的基本步骤&quot;&gt;浏览、阅读、处理的基本步骤&lt;/h3&gt;
+
+&lt;ol&gt;
+  &lt;li&gt;阅读摘要「Abstract」&lt;/li&gt;
+  &lt;li&gt;阅读介绍「Introduction」&lt;/li&gt;
+  &lt;li&gt;阅读结论「Conclusion」&lt;/li&gt;
+  &lt;li&gt;快读中间部分，查看章节标题、表格、图表，尝试了解文章的风格、流程。
+    &lt;ol&gt;
+      &lt;li&gt;论文属于方法论、概念性、理论性、经验性，或是其他&lt;/li&gt;
+      &lt;li&gt;主要是一项调查、新颖的理论贡献、现有理论或技术的实证应用、评论，或是其他&lt;/li&gt;
+    &lt;/ol&gt;
+  &lt;/li&gt;
+  &lt;li&gt;返回快速阅读整个内容，跳过方程式、大多数表格和图表&lt;/li&gt;
+  &lt;li&gt;返回并仔细阅读整篇论文，重点关注看起来最重要的部分或领域&lt;/li&gt;
+&lt;/ol&gt;
+
+&lt;h3 id=&quot;基于基本论点提出评论&quot;&gt;基于基本论点，提出评论&lt;/h3&gt;
+
+&lt;ol&gt;
+  &lt;li&gt;询问这个论证是否合理、内在是否一致、是否有充分的论据或证据支持&lt;/li&gt;
+  &lt;li&gt;与读过的相同或密切相关主题的其他论文进行比较，论点是否一致、矛盾、不相关&lt;/li&gt;
+  &lt;li&gt;使用Google Scholar等资源查找引用此论文的论文、博客、群组，查看其他人的评论&lt;/li&gt;
+  &lt;li&gt;查看参考文献，了解本文如何适应其主体领域的更广泛背景&lt;/li&gt;
+&lt;/ol&gt;
+
+&lt;h2 id=&quot;how-to-read-a-paper&quot;&gt;How to Read a Paper&lt;/h2&gt;
+
+&lt;blockquote&gt;
+  &lt;p&gt;翻译论文: http://ccr.sigcomm.org/online/files/p83-keshavA.pdf&lt;/p&gt;
+&lt;/blockquote&gt;
+
+&lt;h3 id=&quot;三遍法&quot;&gt;三遍法&lt;/h3&gt;
+
+&lt;p&gt;最关键的是，应该最多读三遍论文，而不是从头开始，一直到最后。每一次都需要建立在上一次的基础上，完成特定的目标：
+	1. 第一遍：对论文有总体的了解
+	2. 第二遍：掌握论文的内容
+	3. 第三遍：深入理解论文&lt;/p&gt;
+
+&lt;h4 id=&quot;第一遍&quot;&gt;第一遍&lt;/h4&gt;
+
+&lt;p&gt;快速浏览文章，决定需要重点阅读的部分：&lt;/p&gt;
+&lt;ol&gt;
+  &lt;li&gt;仔细阅读标题、摘要、引言&lt;/li&gt;
+  &lt;li&gt;阅读章节、子章节标题，忽略其他内容&lt;/li&gt;
+  &lt;li&gt;阅读结论&lt;/li&gt;
+  &lt;li&gt;大致浏览参考文献，标记已经阅读过的文献&lt;/li&gt;
+&lt;/ol&gt;
+
+&lt;p&gt;五个问题：&lt;/p&gt;
+&lt;ol&gt;
+  &lt;li&gt;类别：这是篇论文的类型–测量类、现有系统的分析、研究原型的描述&lt;/li&gt;
+  &lt;li&gt;背景：相关的其他论文，分析这个问题的理论基础&lt;/li&gt;
+  &lt;li&gt;正确性：文中假设的有效性&lt;/li&gt;
+  &lt;li&gt;贡献：论文的主要贡献&lt;/li&gt;
+  &lt;li&gt;清晰度：论文的卓越度、亮点&lt;/li&gt;
+&lt;/ol&gt;
+
+&lt;p&gt;根据以上的结论，决定是否进一步阅读。&lt;/p&gt;
+
+&lt;h4 id=&quot;第二遍&quot;&gt;第二遍&lt;/h4&gt;
+
+&lt;p&gt;更加仔细地阅读，忽略证明之类的细节，并且记录要点，在空白处标记评论&lt;/p&gt;
+
+&lt;ol&gt;
+  &lt;li&gt;仔细查看图形、图表、其他解释。特别注意图表，如坐标轴标记是否合适，是否有误差标识，显著显示结论。&lt;/li&gt;
+  &lt;li&gt;标记相关的未读参考论文，延伸阅读&lt;/li&gt;
+&lt;/ol&gt;
+
+&lt;p&gt;第二遍需要一个小时左右，能够掌握论文的内容。能够向其他人总结论文的主旨和支撑论据。这种详细程度适合感兴趣的的非本专业论文。
+如果由于新的、陌生的主题，不熟悉的术语、首字母缩略词，不理解的证明、实验技术，导致难以理解大部分内容。可能是因为论文本身不好，或者有未经证实的断言、大量的前向参考。有三个选择：&lt;/p&gt;
+&lt;ul&gt;
+  &lt;li&gt;把论文扔开&lt;/li&gt;
+  &lt;li&gt;阅读背景材料后，再次理解&lt;/li&gt;
+  &lt;li&gt;坚持第三遍&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;h4 id=&quot;第三遍&quot;&gt;第三遍&lt;/h4&gt;
+
+&lt;p&gt;要完全理解一篇论文，需要第三遍。第三遍的重点的关键是尝试虚构复现论文：即做出与作者相同的假设，重新创作作品。通过这种重新创作，与实际论文比较，可以轻松识别论文的创新之处，并识别隐藏的缺陷和假设。&lt;/p&gt;
+
+&lt;p&gt;需要识别并挑战陈述中的每一个假设，试想用自己的方法表述。根据记忆重建论文的整个结构，并能识别其优点、缺点，辨识其中的隐含的假设、引用缺失以及实验或分析技术的潜在问题。&lt;/p&gt;
+
+&lt;h3 id=&quot;文献查阅&quot;&gt;文献查阅&lt;/h3&gt;
+
+&lt;p&gt;使用学术搜索引擎和关键词查找该领域的三到五篇最新论文。再次，访问该领域的关键论文和研究人员的网站，查看最近发表的文章。最后，访问这些顶级会议的网站，查看最近的会议记录。&lt;/p&gt;</content><author><name></name></author><category term="Reading" /><summary type="html">阅读论文的方法</summary></entry><entry><title type="html">架构设计</title><link href="https://sakaman.github.io/%E9%9A%8F%E7%AC%94/2023/06/27/%E6%9E%B6%E6%9E%84%E8%AE%BE%E8%AE%A1/" rel="alternate" type="text/html" title="架构设计" /><published>2023-06-27T00:00:00+00:00</published><updated>2023-06-27T00:00:00+00:00</updated><id>https://sakaman.github.io/%E9%9A%8F%E7%AC%94/2023/06/27/%E6%9E%B6%E6%9E%84%E8%AE%BE%E8%AE%A1</id><content type="html" xml:base="https://sakaman.github.io/%E9%9A%8F%E7%AC%94/2023/06/27/%E6%9E%B6%E6%9E%84%E8%AE%BE%E8%AE%A1/">&lt;p&gt;一些架构设计要点&lt;/p&gt;
+
+&lt;hr /&gt;
+
+&lt;h2 id=&quot;收益非技术本身&quot;&gt;收益非技术本身&lt;/h2&gt;
+
+&lt;ol&gt;
+  &lt;li&gt;降低技术门槛，加快开发效率&lt;/li&gt;
+  &lt;li&gt;提高系统稳定性&lt;/li&gt;
+  &lt;li&gt;简化、自动化，降低成本&lt;/li&gt;
+&lt;/ol&gt;
+
+&lt;h2 id=&quot;以应用服务和api为视角不以资源技术为视角&quot;&gt;以应用服务和API为视角，不以资源、技术为视角&lt;/h2&gt;
+
+&lt;h2 id=&quot;选择最主流成熟的技术&quot;&gt;选择最主流、成熟的技术&lt;/h2&gt;
+
+&lt;ol&gt;
+  &lt;li&gt;成熟、工业化的技术栈&lt;/li&gt;
+  &lt;li&gt;全球流行的技术&lt;/li&gt;
+  &lt;li&gt;红利大的主流技术&lt;/li&gt;
+&lt;/ol&gt;
+
+&lt;h2 id=&quot;完备性--性能&quot;&gt;完备性 &amp;gt; 性能&lt;/h2&gt;
+
+&lt;ol&gt;
+  &lt;li&gt;最科学、严谨的技术模型&lt;/li&gt;
+&lt;/ol&gt;
+
+&lt;h2 id=&quot;制定病遵循服从标准规范和最佳规范&quot;&gt;制定病遵循服从标准、规范和最佳规范&lt;/h2&gt;
+
+&lt;ol&gt;
+  &lt;li&gt;服务间调用的协议标准、规范&lt;/li&gt;
+  &lt;li&gt;命名的标准和规范&lt;/li&gt;
+  &lt;li&gt;日志和监控的规范&lt;/li&gt;
+  &lt;li&gt;配置上的规范&lt;/li&gt;
+  &lt;li&gt;中间件使用的规范&lt;/li&gt;
+  &lt;li&gt;软件、开发库版本统一&lt;/li&gt;
+&lt;/ol&gt;
+
+&lt;h2 id=&quot;重视架构扩展性可运维性&quot;&gt;重视架构扩展性、可运维性&lt;/h2&gt;
+
+&lt;ol&gt;
+  &lt;li&gt;服务编排-&amp;gt;降低服务间耦合
+    &lt;ol&gt;
+      &lt;li&gt;Workflow&lt;/li&gt;
+      &lt;li&gt;Event Driven&lt;/li&gt;
+      &lt;li&gt;Broker&lt;/li&gt;
+      &lt;li&gt;Gateway&lt;/li&gt;
+      &lt;li&gt;Service Discovery&lt;/li&gt;
+    &lt;/ol&gt;
+  &lt;/li&gt;
+  &lt;li&gt;服务发现、服务网关，降低运维复杂度&lt;/li&gt;
+  &lt;li&gt;设计原则&lt;/li&gt;
+&lt;/ol&gt;
+
+&lt;h2 id=&quot;收口控制逻辑&quot;&gt;收口控制逻辑&lt;/h2&gt;
+
+&lt;ol&gt;
+  &lt;li&gt;流量&lt;/li&gt;
+  &lt;li&gt;服务治理&lt;/li&gt;
+  &lt;li&gt;监控数据&lt;/li&gt;
+  &lt;li&gt;资源调度&lt;/li&gt;
+  &lt;li&gt;中间件&lt;/li&gt;
+&lt;/ol&gt;
+
+&lt;h2 id=&quot;references&quot;&gt;References&lt;/h2&gt;
+
+&lt;ol&gt;
+  &lt;li&gt;https://coolshell.cn/articles/21672.html&lt;/li&gt;
+&lt;/ol&gt;</content><author><name></name></author><category term="随笔" /><summary type="html">一些架构设计要点</summary></entry><entry><title type="html">Prompts for ChatGPT</title><link href="https://sakaman.github.io/skills/2023/06/06/Prompts-for-ChatGPT/" rel="alternate" type="text/html" title="Prompts for ChatGPT" /><published>2023-06-06T00:00:00+00:00</published><updated>2023-06-06T00:00:00+00:00</updated><id>https://sakaman.github.io/skills/2023/06/06/Prompts%20for%20ChatGPT</id><content type="html" xml:base="https://sakaman.github.io/skills/2023/06/06/Prompts-for-ChatGPT/">&lt;p&gt;Best practice prompts for chatGPT&lt;/p&gt;
+
+&lt;h2 id=&quot;strategy-write-clear-instructions&quot;&gt;Strategy: Write clear instructions&lt;/h2&gt;
+
+&lt;h3 id=&quot;include-details-in-your-query-to-get-more-relevant-answers&quot;&gt;Include details in your query to get more relevant answers&lt;/h3&gt;
+
+&lt;p&gt;In order to get a highly relevant response, make sure that requests provide any important details or context. Otherwise you are leaving it up to the model to guess what you mean.&lt;/p&gt;
+
+&lt;h3 id=&quot;ask-the-model-to-adopt-a-persona&quot;&gt;Ask the model to adopt a persona&lt;/h3&gt;
+
+&lt;p&gt;The system message can be used to specify the persona used by the model in its replies.&lt;/p&gt;
+
+&lt;h3 id=&quot;use-delimiters-to-clearly-indicate-distinct-parts-of-the-input&quot;&gt;Use delimiters to clearly indicate distinct parts of the input&lt;/h3&gt;
+
+&lt;p&gt;Delimiters like triple quotation marks, XML tags, section titles, etc. can help demarcate sections of text to be treated differently.&lt;/p&gt;
+
+&lt;h3 id=&quot;specify-the-steps-required-to-complete-a-task&quot;&gt;Specify the steps required to complete a task&lt;/h3&gt;
+
+&lt;p&gt;Some tasks are best specified as a sequence of steps. Writing the steps out explicitly can make it easier for the model to follow them.&lt;/p&gt;
+
+&lt;h3 id=&quot;provide-examples&quot;&gt;Provide examples&lt;/h3&gt;
+
+&lt;p&gt;Providing general instructions that apply to all examples is generally more efficient than demonstrating all permutations of a task by example, but in some cases providing examples may be easier. For example, if you intended for the model to copy a particular style of responding to user queries which is difficult to describe explicitly. This is known as “few-shot” prompting.&lt;/p&gt;
+
+&lt;h3 id=&quot;specify-the-desired-length-of-the-output&quot;&gt;Specify the desired length of the output&lt;/h3&gt;
+
+&lt;p&gt;You can ask the model to produce outputs that are of a given target length. The targeted output length can be specified in terms of the count of words, sentences, paragraphs, bullet points, etc. Note however that instructing the model to generate a specific number of words does not work with high precision. The model can more reliably generate outputs with a specific number of paragraphs or bullet points.&lt;/p&gt;
+
+&lt;h2 id=&quot;provide-reference-text&quot;&gt;Provide reference text&lt;/h2&gt;
+
+&lt;h3 id=&quot;instruct-the-model-to-answer-using-a-reference-text&quot;&gt;Instruct the model to answer using a reference text&lt;/h3&gt;
+
+&lt;p&gt;If we can provide a model with trusted information that is relevant to the current query, then we can instruct the model to use the provided information to compose its answer.&lt;/p&gt;
+
+&lt;h3 id=&quot;instruct-the-model--to-answer-with-citations-from-a-reference-text&quot;&gt;Instruct the model  to answer with citations from a reference text&lt;/h3&gt;
+
+&lt;p&gt;If the input has been supplemented with relevant knowledge, it’s straightforward to request that the model add citations to its answers by referencing passages from provided documents. Note that citations in the output can then be verified programmatically by string matching within the provided documents.&lt;/p&gt;
+
+&lt;h2 id=&quot;split-complex-tasks-into-simpler-subtasks&quot;&gt;Split complex tasks into simpler subtasks&lt;/h2&gt;
+
+&lt;h3 id=&quot;use-intent-classification-to-identify-the-most-relevant-instructions-for-a-user-query&quot;&gt;Use intent classification to identify the most relevant instructions for a user query&lt;/h3&gt;
+
+&lt;p&gt;For tasks in which lots of independent sets of instructions are needed to handle different cases, it can be beneficial to first classify the type of query and to use that classification to determine which instructions are needed. This can be achieved by defining fixed categories and hardcoding instructions that are relevant for handling tasks in a given category. This process can also be applied recursively to decompose a task into a sequence of stages.&lt;/p&gt;
+
+&lt;h3 id=&quot;for-dialogue-applications-that-require-very-long-conversations-summarize-or-filter-previous-dialogue&quot;&gt;For dialogue applications that require very long conversations, summarize or filter previous dialogue&lt;/h3&gt;
+
+&lt;h3 id=&quot;summarize-long-documents-piecewise-and-construct-a-full-summary-recursively&quot;&gt;Summarize long documents piecewise and construct a full summary recursively&lt;/h3&gt;
+
+&lt;h2 id=&quot;give-gpts-time-to-think&quot;&gt;Give GPTs time to “think”&lt;/h2&gt;
+
+&lt;h3 id=&quot;instruct-the-model-to-work-out-its-own-solution-before-rushing-to-a-conclusion&quot;&gt;Instruct the model to work out its own solution before rushing to a conclusion&lt;/h3&gt;
+
+&lt;p&gt;Sometimes we get better results when we explicitly instruct the model to reason from first principles before coming to a conclusion.&lt;/p&gt;
+
+&lt;h3 id=&quot;use-inner-monologue-or-a-sequence-of-queries-to-hide-the-models-reasoning-process&quot;&gt;Use inner monologue or a sequence of queries to hide the model’s reasoning process&lt;/h3&gt;
+
+&lt;p&gt;Inner monologue is a tactic that can be used to mitigate this. The idea of inner monologue is to instruct the model to put parts of the output that are meant to be hidden from the user into a structured format that makes parsing them easy. Then before presenting the output to the user, the output is parsed and only part of the output is made visible.&lt;/p&gt;
+
+&lt;h3 id=&quot;ask-the-model-if-it-missed-anything-on-previous-passes&quot;&gt;Ask the model if it missed anything on previous passes&lt;/h3&gt;
+
+&lt;h2 id=&quot;use-externals-tools&quot;&gt;Use externals tools&lt;/h2&gt;
+
+&lt;p&gt;Compensate for the weaknesses of GPTs by feeding them the outputs of other tools.&lt;/p&gt;
+
+&lt;h3 id=&quot;use-embeddings-based-search-to-implement-efficient-knowledge-retrieval&quot;&gt;Use embeddings-based search to implement efficient knowledge retrieval&lt;/h3&gt;
+
+&lt;p&gt;A model can leverage external sources of information if provided as part of its input. This can help the model to generate more informed and up-to-date responses. Embeddings can be used to implement efficient knowledge retrieval, so that relevant information can be added to the model input dynamically at run-time.&lt;/p&gt;
+
+&lt;h3 id=&quot;use-code-execution-to-perform-more-accurate-calculations-or-call-external-apis&quot;&gt;Use code execution to perform more accurate calculations or call external APIs&lt;/h3&gt;
+
+&lt;h2 id=&quot;test-changes-systematically&quot;&gt;Test changes systematically&lt;/h2&gt;
+
+&lt;h3 id=&quot;evaluate-model-outputs-with-reference-to-gold-standard-answers&quot;&gt;Evaluate model outputs with reference to gold-standard answers&lt;/h3&gt;
+
+&lt;p&gt;Suppose it is known that the correct answer to a question should make reference to a specific set of known facts. Then we can use a model query to count how many of the required facts are included in the answer.&lt;/p&gt;</content><author><name></name></author><category term="Skills" /><summary type="html">Best practice prompts for chatGPT</summary></entry><entry><title type="html">一致性校验</title><link href="https://sakaman.github.io/application/2023/06/06/%E4%B8%80%E8%87%B4%E6%80%A7%E6%A0%A1%E9%AA%8C/" rel="alternate" type="text/html" title="一致性校验" /><published>2023-06-06T00:00:00+00:00</published><updated>2023-06-06T00:00:00+00:00</updated><id>https://sakaman.github.io/application/2023/06/06/%E4%B8%80%E8%87%B4%E6%80%A7%E6%A0%A1%E9%AA%8C</id><content type="html" xml:base="https://sakaman.github.io/application/2023/06/06/%E4%B8%80%E8%87%B4%E6%80%A7%E6%A0%A1%E9%AA%8C/">&lt;p&gt;分布式系统数据数据一致性&lt;/p&gt;
+
+&lt;h2 id=&quot;业务侧系统保证最终一致性&quot;&gt;业务侧系统保证最终一致性&lt;/h2&gt;
+
+&lt;h3 id=&quot;核心思想&quot;&gt;核心思想&lt;/h3&gt;
+
+&lt;p&gt;通过业务系统的服务保证数据的最终一致性，业务系统侧系统记录每一次具体业务操作的执行流水日志信息，并且对没有全部成功的变更结果，触发执行数据一致性的校验核对。&lt;/p&gt;
+
+&lt;h3 id=&quot;设计原则&quot;&gt;设计原则&lt;/h3&gt;
+
+&lt;ol&gt;
+  &lt;li&gt;根据业务操作标识和业务操作唯一ID实现接口的幂等设计&lt;/li&gt;
+  &lt;li&gt;实时的同步检查核对、准实时的异步检查核对、定时任务的异步检查核对&lt;/li&gt;
+&lt;/ol&gt;
+
+&lt;h3 id=&quot;流程图&quot;&gt;流程图&lt;/h3&gt;
+
+&lt;ol&gt;
+  &lt;li&gt;
+    &lt;p&gt;同步执行
+&lt;img src=&quot;/assets/images/2023-06/业务侧-同步.png&quot; alt=&quot;&quot; /&gt;&lt;/p&gt;
+  &lt;/li&gt;
+  &lt;li&gt;
+    &lt;p&gt;异步核对
+&lt;img src=&quot;/assets/images/2023-06/业务侧-异步.png&quot; alt=&quot;&quot; /&gt;&lt;/p&gt;
+  &lt;/li&gt;
+&lt;/ol&gt;
+
+&lt;h2 id=&quot;平台侧系统保证最终一致性&quot;&gt;平台侧系统保证最终一致性&lt;/h2&gt;
+
+&lt;h3 id=&quot;核心思想-1&quot;&gt;核心思想&lt;/h3&gt;
+
+&lt;p&gt;平台侧系统的每一次数据变更，主动寻找业务侧系统，确认本次数据变更结果&lt;/p&gt;
+
+&lt;h3 id=&quot;设计的基本原则&quot;&gt;设计的基本原则&lt;/h3&gt;
+
+&lt;ol&gt;
+  &lt;li&gt;根据业务操作标识和唯一ID做幂等设计&lt;/li&gt;
+&lt;/ol&gt;
+
+&lt;h3 id=&quot;流程图-1&quot;&gt;流程图&lt;/h3&gt;
+
+&lt;ol&gt;
+  &lt;li&gt;
+    &lt;p&gt;同步核对
+&lt;img src=&quot;/assets/images/2023-06/平台侧-同步.png&quot; alt=&quot;&quot; /&gt;&lt;/p&gt;
+  &lt;/li&gt;
+  &lt;li&gt;
+    &lt;p&gt;异步核对
+&lt;img src=&quot;/assets/images/2023-06/平台侧-异步.png&quot; alt=&quot;&quot; /&gt;&lt;/p&gt;
+  &lt;/li&gt;
+&lt;/ol&gt;</content><author><name></name></author><category term="Application" /><summary type="html">分布式系统数据数据一致性</summary></entry><entry><title type="html">CAP</title><link href="https://sakaman.github.io/distributed%20system/2023/06/05/CAP/" rel="alternate" type="text/html" title="CAP" /><published>2023-06-05T00:00:00+00:00</published><updated>2023-06-05T00:00:00+00:00</updated><id>https://sakaman.github.io/distributed%20system/2023/06/05/CAP</id><content type="html" xml:base="https://sakaman.github.io/distributed%20system/2023/06/05/CAP/">&lt;p&gt;CAP: Consistency, Available, Partition&lt;/p&gt;
+
+&lt;h2 id=&quot;consistency-patterns&quot;&gt;Consistency patterns&lt;/h2&gt;
+&lt;h3 id=&quot;weak-consistency&quot;&gt;Weak Consistency&lt;/h3&gt;
+&lt;ul&gt;
+  &lt;li&gt;Real time&lt;/li&gt;
+  &lt;li&gt;Lost data during connection loss&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;h3 id=&quot;eventual-consistency&quot;&gt;Eventual Consistency&lt;/h3&gt;
+&lt;ul&gt;
+  &lt;li&gt;Write =&amp;gt; Read&lt;/li&gt;
+  &lt;li&gt;Data is replicated asynchronously&lt;/li&gt;
+  &lt;li&gt;In highly available systems&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;h3 id=&quot;strong-consistency&quot;&gt;Strong Consistency&lt;/h3&gt;
+&lt;ul&gt;
+  &lt;li&gt;Data is replicated synchronously&lt;/li&gt;
+  &lt;li&gt;File system &amp;amp; RDBMS&lt;/li&gt;
+  &lt;li&gt;Transactions&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;h2 id=&quot;consistency-model&quot;&gt;Consistency Model&lt;/h2&gt;
+&lt;h3 id=&quot;backups&quot;&gt;Backups&lt;/h3&gt;
+&lt;ul&gt;
+  &lt;li&gt;Make a copy&lt;/li&gt;
+  &lt;li&gt;Sledgehammer&lt;/li&gt;
+  &lt;li&gt;Weak consistency&lt;/li&gt;
+  &lt;li&gt;Usually no transactions&lt;/li&gt;
+  &lt;li&gt;Datastore: early internal launch&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;h3 id=&quot;masterslave-replication&quot;&gt;Master/Slave replication&lt;/h3&gt;
+&lt;ul&gt;
+  &lt;li&gt;Usually asynchronous&lt;/li&gt;
+  &lt;li&gt;Good for throughput, latency&lt;/li&gt;
+  &lt;li&gt;Most RDBMSes
+    &lt;ul&gt;
+      &lt;li&gt;e.g. MySQL binary logs&lt;/li&gt;
+    &lt;/ul&gt;
+  &lt;/li&gt;
+  &lt;li&gt;Weak/eventual consistency
+    &lt;ul&gt;
+      &lt;li&gt;Granularity matters!&lt;/li&gt;
+    &lt;/ul&gt;
+  &lt;/li&gt;
+  &lt;li&gt;Datastore: current&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;h3 id=&quot;multi-master-replication&quot;&gt;Multi-master replication&lt;/h3&gt;
+&lt;ul&gt;
+  &lt;li&gt;Umbrella term for merging concurrent writes&lt;/li&gt;
+  &lt;li&gt;Asynchronous, eventual consistency&lt;/li&gt;
+  &lt;li&gt;Need &lt;em&gt;serialization&lt;/em&gt; protocol
+    &lt;ul&gt;
+      &lt;li&gt;e.g. &lt;em&gt;timestamp oracle&lt;/em&gt;: monotonically increasing timestamps&lt;/li&gt;
+      &lt;li&gt;Either SPOF with master election…&lt;/li&gt;
+      &lt;li&gt;…or distributed consensus protocol&lt;/li&gt;
+    &lt;/ul&gt;
+  &lt;/li&gt;
+  &lt;li&gt;No global transactions!&lt;/li&gt;
+  &lt;li&gt;Datastore: no strong consistency&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;h3 id=&quot;two-phase-commit&quot;&gt;Two Phase Commit&lt;/h3&gt;
+&lt;ul&gt;
+  &lt;li&gt;Semi-distributed consensus protocol
+    &lt;ul&gt;
+      &lt;li&gt;deterministic coordinator&lt;/li&gt;
+    &lt;/ul&gt;
+  &lt;/li&gt;
+  &lt;li&gt;1: propose, 2: vote, 3: commit/abort&lt;/li&gt;
+  &lt;li&gt;Heavyweight, synchronous, high latency&lt;/li&gt;
+  &lt;li&gt;3PC buys async with extra round trip&lt;/li&gt;
+  &lt;li&gt;Datastore: poor throughput&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;h3 id=&quot;paxos&quot;&gt;Paxos&lt;/h3&gt;
+&lt;ul&gt;
+  &lt;li&gt;Fully distributed consensus protocol&lt;/li&gt;
+  &lt;li&gt;“Either Paxos, or Paxos with cruft, or broken”
+    &lt;ul&gt;
+      &lt;li&gt;Mike Burrows&lt;/li&gt;
+    &lt;/ul&gt;
+  &lt;/li&gt;
+  &lt;li&gt;Majority writes; survives minority failure&lt;/li&gt;
+  &lt;li&gt;Protocol similar to 2PC/3PC
+    &lt;ul&gt;
+      &lt;li&gt;Lighter, but still high latency&lt;/li&gt;
+    &lt;/ul&gt;
+  &lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;&lt;img src=&quot;CAP.png&quot; alt=&quot;&quot; /&gt;&lt;/p&gt;
+
+&lt;h2 id=&quot;availability-patterns&quot;&gt;Availability Patterns&lt;/h2&gt;
+&lt;h3 id=&quot;fail-over&quot;&gt;Fail-over&lt;/h3&gt;
+&lt;h4 id=&quot;active-passive&quot;&gt;Active-passive&lt;/h4&gt;
+&lt;p&gt;With active-passive fail-over, heartbeats are sent between the active and the passive server on standby.&lt;/p&gt;
+
+&lt;h4 id=&quot;active-active&quot;&gt;Active-active&lt;/h4&gt;
+&lt;p&gt;Both servers are managing traffic, spreading the load between them.&lt;/p&gt;
+
+&lt;h3 id=&quot;replication&quot;&gt;Replication&lt;/h3&gt;
+&lt;p&gt;&lt;strong&gt;Master-slave and master-master&lt;/strong&gt;&lt;/p&gt;
+
+&lt;h2 id=&quot;references&quot;&gt;References&lt;/h2&gt;
+&lt;ol&gt;
+  &lt;li&gt;https://www.youtube.com/watch?v=srOgpXECblk&lt;/li&gt;
+&lt;/ol&gt;</content><author><name></name></author><category term="Distributed System" /><summary type="html">CAP: Consistency, Available, Partition</summary></entry><entry><title type="html">MySQL插入性能比较</title><link href="https://sakaman.github.io/database/2022/09/05/Mysql%E6%8F%92%E5%85%A5%E6%80%A7%E8%83%BD/" rel="alternate" type="text/html" title="MySQL插入性能比较" /><published>2022-09-05T00:00:00+00:00</published><updated>2022-09-05T00:00:00+00:00</updated><id>https://sakaman.github.io/database/2022/09/05/Mysql%E6%8F%92%E5%85%A5%E6%80%A7%E8%83%BD</id><content type="html" xml:base="https://sakaman.github.io/database/2022/09/05/Mysql%E6%8F%92%E5%85%A5%E6%80%A7%E8%83%BD/">&lt;p&gt;基于 MySQL 对数据库批量插入的性能研究&lt;/p&gt;
+
+&lt;h2 id=&quot;概要&quot;&gt;概要&lt;/h2&gt;
+
+&lt;ol&gt;
+  &lt;li&gt;多条批量插入性能差，无论是否开启整体事务或重写批量语句&lt;/li&gt;
+  &lt;li&gt;JDBC批量提交在开启重写批量语句时，性能得到极大提升&lt;/li&gt;
+  &lt;li&gt;单条插入性能优良&lt;/li&gt;
+  &lt;li&gt;Mybatis获取session插入提交「开启重写批量语句」与手写单条插入性能无异&lt;/li&gt;
+&lt;/ol&gt;
+
+&lt;h2 id=&quot;要点&quot;&gt;要点&lt;/h2&gt;
+
+&lt;ol&gt;
+  &lt;li&gt;JDBC原生性能最佳&lt;/li&gt;
+  &lt;li&gt;存在批量插入的场景，开启rewriteBatchStatements&lt;/li&gt;
+&lt;/ol&gt;
+
+&lt;h2 id=&quot;批量插入模式&quot;&gt;批量插入模式&lt;/h2&gt;
+
+&lt;p&gt;数据库批量插入有几种模式：&lt;/p&gt;
+
+&lt;ol&gt;
+  &lt;li&gt;多条插入(Multi single statements)&lt;/li&gt;
+  &lt;li&gt;单条多值插入(Batch: Single statement with multi values)&lt;/li&gt;
+  &lt;li&gt;批量插入(bulk insert provided by ORM)&lt;/li&gt;
+  &lt;li&gt;批量插入(bulk insert provided by ORM with enable rewrite)&lt;/li&gt;
+&lt;/ol&gt;
+
+&lt;h2 id=&quot;jdbc&quot;&gt;JDBC&lt;/h2&gt;
+
+&lt;h3 id=&quot;single-inserts&quot;&gt;Single Inserts&lt;/h3&gt;
+
+&lt;blockquote&gt;
+  &lt;p&gt;Cost 360013ms&lt;br /&gt;
+Cost 388987ms (enable rewriteBatchStatements)&lt;/p&gt;
+&lt;/blockquote&gt;
+
+&lt;div class=&quot;language-java highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;kd&quot;&gt;public&lt;/span&gt; &lt;span class=&quot;kt&quot;&gt;void&lt;/span&gt; &lt;span class=&quot;nf&quot;&gt;handle&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;nc&quot;&gt;Connection&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;connection&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;)&lt;/span&gt; &lt;span class=&quot;kd&quot;&gt;throws&lt;/span&gt; &lt;span class=&quot;nc&quot;&gt;SQLException&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;{&lt;/span&gt;
+    &lt;span class=&quot;k&quot;&gt;for&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;kt&quot;&gt;int&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;i&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;;&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;i&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;&amp;lt;&lt;/span&gt; &lt;span class=&quot;no&quot;&gt;ITERATION_COUNT&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;;&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;i&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;++)&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;{&lt;/span&gt;
+        &lt;span class=&quot;kd&quot;&gt;final&lt;/span&gt; &lt;span class=&quot;nc&quot;&gt;PreparedStatement&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;statement&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;connection&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;na&quot;&gt;prepareStatement&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&quot;INSERT INTO t_perf (c1, c2, c3) VALUES (?, ?, ?)&quot;&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;);&lt;/span&gt;
+        &lt;span class=&quot;n&quot;&gt;statement&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;na&quot;&gt;setInt&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;1&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;i&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;);&lt;/span&gt;
+        &lt;span class=&quot;n&quot;&gt;statement&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;na&quot;&gt;setFloat&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;2&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;i&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;);&lt;/span&gt;
+        &lt;span class=&quot;n&quot;&gt;statement&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;na&quot;&gt;setString&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;3&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;valueOf&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;i&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;));&lt;/span&gt;
+        &lt;span class=&quot;n&quot;&gt;statement&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;na&quot;&gt;execute&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;();&lt;/span&gt;
+        &lt;span class=&quot;n&quot;&gt;statement&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;na&quot;&gt;close&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;();&lt;/span&gt;
+    &lt;span class=&quot;o&quot;&gt;}&lt;/span&gt;
+&lt;span class=&quot;o&quot;&gt;}&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;h3 id=&quot;batch-insert&quot;&gt;Batch Insert&lt;/h3&gt;
+
+&lt;blockquote&gt;
+  &lt;p&gt;Cost 182008ms&lt;br /&gt;
+Cost 869ms (enable rewriteBatchStatements)&lt;/p&gt;
+&lt;/blockquote&gt;
+
+&lt;div class=&quot;language-java highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;kd&quot;&gt;public&lt;/span&gt; &lt;span class=&quot;kt&quot;&gt;void&lt;/span&gt; &lt;span class=&quot;nf&quot;&gt;handle&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;nc&quot;&gt;Connection&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;connection&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;)&lt;/span&gt; &lt;span class=&quot;kd&quot;&gt;throws&lt;/span&gt; &lt;span class=&quot;nc&quot;&gt;SQLException&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;{&lt;/span&gt;
+    &lt;span class=&quot;kd&quot;&gt;final&lt;/span&gt; &lt;span class=&quot;nc&quot;&gt;PreparedStatement&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;statement&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;connection&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;na&quot;&gt;prepareStatement&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&quot;INSERT INTO t_perf (c1, c2, c3) VALUES (?, ?, ?)&quot;&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;);&lt;/span&gt;
+    &lt;span class=&quot;k&quot;&gt;for&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;kt&quot;&gt;int&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;i&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;;&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;i&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;&amp;lt;&lt;/span&gt; &lt;span class=&quot;no&quot;&gt;ITERATION_COUNT&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;;&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;i&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;++)&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;{&lt;/span&gt;
+        &lt;span class=&quot;n&quot;&gt;statement&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;na&quot;&gt;setInt&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;1&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;i&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;);&lt;/span&gt;
+        &lt;span class=&quot;n&quot;&gt;statement&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;na&quot;&gt;setFloat&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;2&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;i&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;);&lt;/span&gt;
+        &lt;span class=&quot;n&quot;&gt;statement&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;na&quot;&gt;setString&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;3&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;valueOf&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;i&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;));&lt;/span&gt;
+        &lt;span class=&quot;n&quot;&gt;statement&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;na&quot;&gt;addBatch&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;();&lt;/span&gt;
+    &lt;span class=&quot;o&quot;&gt;}&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;log&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;na&quot;&gt;info&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&quot;{}&quot;&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;statement&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;);&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;statement&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;na&quot;&gt;executeBatch&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;();&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;statement&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;na&quot;&gt;close&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;();&lt;/span&gt;
+&lt;span class=&quot;o&quot;&gt;}&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;h3 id=&quot;dirty-bulk-insert&quot;&gt;Dirty Bulk Insert&lt;/h3&gt;
+
+&lt;blockquote&gt;
+  &lt;p&gt;Cost 762ms&lt;br /&gt;
+Cost 846ms (enable rewriteBatchStatements)&lt;/p&gt;
+&lt;/blockquote&gt;
+
+&lt;div class=&quot;language-java highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;kd&quot;&gt;public&lt;/span&gt; &lt;span class=&quot;kt&quot;&gt;void&lt;/span&gt; &lt;span class=&quot;nf&quot;&gt;handle&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;nc&quot;&gt;Connection&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;connection&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;)&lt;/span&gt; &lt;span class=&quot;kd&quot;&gt;throws&lt;/span&gt; &lt;span class=&quot;nc&quot;&gt;SQLException&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;{&lt;/span&gt;
+    &lt;span class=&quot;kd&quot;&gt;final&lt;/span&gt; &lt;span class=&quot;nc&quot;&gt;StringBuilder&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;builder&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;new&lt;/span&gt; &lt;span class=&quot;nc&quot;&gt;StringBuilder&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&quot;INSERT INTO t_perf (c1, c2, c3) VALUES &quot;&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;);&lt;/span&gt;
+    &lt;span class=&quot;k&quot;&gt;for&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;kt&quot;&gt;int&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;i&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;;&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;i&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;&amp;lt;&lt;/span&gt; &lt;span class=&quot;no&quot;&gt;ITERATION_COUNT&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;;&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;i&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;++)&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;{&lt;/span&gt;
+        &lt;span class=&quot;k&quot;&gt;if&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;i&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;!=&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;)&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;{&lt;/span&gt;
+            &lt;span class=&quot;n&quot;&gt;builder&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;na&quot;&gt;append&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&quot;,&quot;&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;);&lt;/span&gt;
+        &lt;span class=&quot;o&quot;&gt;}&lt;/span&gt;
+        &lt;span class=&quot;n&quot;&gt;builder&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;na&quot;&gt;append&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;format&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&quot;(%s, %s, '%s')&quot;&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;i&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;i&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;i&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;));&lt;/span&gt;
+    &lt;span class=&quot;o&quot;&gt;}&lt;/span&gt;
+    &lt;span class=&quot;kd&quot;&gt;final&lt;/span&gt; &lt;span class=&quot;nc&quot;&gt;String&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;query&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;builder&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;na&quot;&gt;toString&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;();&lt;/span&gt;
+    &lt;span class=&quot;kd&quot;&gt;final&lt;/span&gt; &lt;span class=&quot;nc&quot;&gt;PreparedStatement&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;statement&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;connection&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;na&quot;&gt;prepareStatement&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;query&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;);&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;log&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;na&quot;&gt;info&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&quot;{}&quot;&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;statement&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;);&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;statement&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;na&quot;&gt;execute&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;();&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;statement&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;na&quot;&gt;close&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;();&lt;/span&gt;
+&lt;span class=&quot;o&quot;&gt;}&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;h3 id=&quot;safe-bulk-insert&quot;&gt;Safe Bulk Insert&lt;/h3&gt;
+
+&lt;blockquote&gt;
+  &lt;p&gt;Cost 716ms&lt;br /&gt;
+Cost 808ms (enable rewriteBatchStatements)&lt;/p&gt;
+&lt;/blockquote&gt;
+
+&lt;div class=&quot;language-java highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;kd&quot;&gt;private&lt;/span&gt; &lt;span class=&quot;nc&quot;&gt;String&lt;/span&gt; &lt;span class=&quot;nf&quot;&gt;getInsertPlaceholders&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;kt&quot;&gt;int&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;placeholderCount&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;)&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;{&lt;/span&gt;
+    &lt;span class=&quot;kd&quot;&gt;final&lt;/span&gt; &lt;span class=&quot;nc&quot;&gt;StringBuilder&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;builder&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;new&lt;/span&gt; &lt;span class=&quot;nc&quot;&gt;StringBuilder&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&quot;(&quot;&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;);&lt;/span&gt;
+    &lt;span class=&quot;k&quot;&gt;for&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;kt&quot;&gt;int&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;i&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;;&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;i&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;&amp;lt;&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;placeholderCount&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;;&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;i&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;++)&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;{&lt;/span&gt;
+        &lt;span class=&quot;k&quot;&gt;if&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;i&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;!=&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;)&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;{&lt;/span&gt;
+            &lt;span class=&quot;n&quot;&gt;builder&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;na&quot;&gt;append&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&quot;,&quot;&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;);&lt;/span&gt;
+        &lt;span class=&quot;o&quot;&gt;}&lt;/span&gt;
+        &lt;span class=&quot;n&quot;&gt;builder&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;na&quot;&gt;append&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&quot;?&quot;&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;);&lt;/span&gt;
+    &lt;span class=&quot;o&quot;&gt;}&lt;/span&gt;
+    &lt;span class=&quot;k&quot;&gt;return&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;builder&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;na&quot;&gt;append&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&quot;)&quot;&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;).&lt;/span&gt;&lt;span class=&quot;na&quot;&gt;toString&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;();&lt;/span&gt;
+&lt;span class=&quot;o&quot;&gt;}&lt;/span&gt;
+
+&lt;span class=&quot;nd&quot;&gt;@SuppressWarnings&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&quot;AssignmentToForLoopParameter&quot;&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;)&lt;/span&gt;
+&lt;span class=&quot;nd&quot;&gt;@Override&lt;/span&gt;
+&lt;span class=&quot;kd&quot;&gt;public&lt;/span&gt; &lt;span class=&quot;kt&quot;&gt;void&lt;/span&gt; &lt;span class=&quot;nf&quot;&gt;handle&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;nc&quot;&gt;Connection&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;connection&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;)&lt;/span&gt; &lt;span class=&quot;kd&quot;&gt;throws&lt;/span&gt; &lt;span class=&quot;nc&quot;&gt;SQLException&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;{&lt;/span&gt;
+    &lt;span class=&quot;kd&quot;&gt;final&lt;/span&gt; &lt;span class=&quot;kt&quot;&gt;int&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;columnCount&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;3&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;;&lt;/span&gt;
+    &lt;span class=&quot;kd&quot;&gt;final&lt;/span&gt; &lt;span class=&quot;nc&quot;&gt;StringBuilder&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;builder&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;new&lt;/span&gt; &lt;span class=&quot;nc&quot;&gt;StringBuilder&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&quot;INSERT INTO t_perf (c1, c2, c3) VALUES &quot;&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;);&lt;/span&gt;
+    &lt;span class=&quot;kd&quot;&gt;final&lt;/span&gt; &lt;span class=&quot;nc&quot;&gt;String&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;placeholders&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;getInsertPlaceholders&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;columnCount&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;);&lt;/span&gt;
+    &lt;span class=&quot;k&quot;&gt;for&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;kt&quot;&gt;int&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;i&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;;&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;i&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;&amp;lt;&lt;/span&gt; &lt;span class=&quot;no&quot;&gt;ITERATION_COUNT&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;;&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;i&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;++)&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;{&lt;/span&gt;
+        &lt;span class=&quot;k&quot;&gt;if&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;i&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;!=&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;)&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;{&lt;/span&gt;
+            &lt;span class=&quot;n&quot;&gt;builder&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;na&quot;&gt;append&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&quot;,&quot;&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;);&lt;/span&gt;
+        &lt;span class=&quot;o&quot;&gt;}&lt;/span&gt;
+        &lt;span class=&quot;n&quot;&gt;builder&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;na&quot;&gt;append&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;placeholders&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;);&lt;/span&gt;
+    &lt;span class=&quot;o&quot;&gt;}&lt;/span&gt;
+    &lt;span class=&quot;kd&quot;&gt;final&lt;/span&gt; &lt;span class=&quot;kt&quot;&gt;int&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;maxParameterIndex&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;no&quot;&gt;ITERATION_COUNT&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;*&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;columnCount&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;;&lt;/span&gt;
+    &lt;span class=&quot;kd&quot;&gt;final&lt;/span&gt; &lt;span class=&quot;nc&quot;&gt;String&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;query&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;builder&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;na&quot;&gt;toString&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;();&lt;/span&gt;
+    &lt;span class=&quot;kd&quot;&gt;final&lt;/span&gt; &lt;span class=&quot;nc&quot;&gt;PreparedStatement&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;statement&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;connection&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;na&quot;&gt;prepareStatement&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;query&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;);&lt;/span&gt;
+    &lt;span class=&quot;kt&quot;&gt;int&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;valueIndex&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;;&lt;/span&gt;
+    &lt;span class=&quot;k&quot;&gt;for&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;kt&quot;&gt;int&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;parameterIndex&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;1&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;;&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;parameterIndex&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;&amp;lt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;maxParameterIndex&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;;&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;valueIndex&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;++)&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;{&lt;/span&gt;
+        &lt;span class=&quot;n&quot;&gt;statement&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;na&quot;&gt;setObject&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;parameterIndex&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;++,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;valueIndex&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;);&lt;/span&gt;
+        &lt;span class=&quot;n&quot;&gt;statement&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;na&quot;&gt;setObject&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;parameterIndex&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;++,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;valueIndex&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;);&lt;/span&gt;
+        &lt;span class=&quot;n&quot;&gt;statement&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;na&quot;&gt;setObject&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;parameterIndex&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;++,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;valueIndex&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;);&lt;/span&gt;
+    &lt;span class=&quot;o&quot;&gt;}&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;log&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;na&quot;&gt;info&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&quot;{}&quot;&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;statement&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;);&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;statement&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;na&quot;&gt;execute&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;();&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;statement&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;na&quot;&gt;close&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;();&lt;/span&gt;
+&lt;span class=&quot;o&quot;&gt;}&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;h3 id=&quot;single-inserts-in-a-transaction&quot;&gt;Single inserts in a transaction&lt;/h3&gt;
+
+&lt;blockquote&gt;
+  &lt;p&gt;Cost 402029ms&lt;/p&gt;
+&lt;/blockquote&gt;
+
+&lt;div class=&quot;language-java highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;kd&quot;&gt;public&lt;/span&gt; &lt;span class=&quot;kt&quot;&gt;void&lt;/span&gt; &lt;span class=&quot;nf&quot;&gt;handle&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;nc&quot;&gt;Connection&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;connection&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;)&lt;/span&gt; &lt;span class=&quot;kd&quot;&gt;throws&lt;/span&gt; &lt;span class=&quot;nc&quot;&gt;SQLException&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;{&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;connection&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;na&quot;&gt;setAutoCommit&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;kc&quot;&gt;false&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;);&lt;/span&gt;
+    &lt;span class=&quot;k&quot;&gt;for&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;kt&quot;&gt;int&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;i&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;;&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;i&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;&amp;lt;&lt;/span&gt; &lt;span class=&quot;no&quot;&gt;ITERATION_COUNT&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;;&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;i&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;++)&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;{&lt;/span&gt;
+        &lt;span class=&quot;kd&quot;&gt;final&lt;/span&gt; &lt;span class=&quot;nc&quot;&gt;PreparedStatement&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;statement&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;connection&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;na&quot;&gt;prepareStatement&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&quot;INSERT INTO t_perf (c1, c2, c3) VALUES (?, ?, ?)&quot;&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;);&lt;/span&gt;
+        &lt;span class=&quot;n&quot;&gt;statement&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;na&quot;&gt;setInt&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;1&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;i&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;);&lt;/span&gt;
+        &lt;span class=&quot;n&quot;&gt;statement&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;na&quot;&gt;setFloat&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;2&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;i&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;);&lt;/span&gt;
+        &lt;span class=&quot;n&quot;&gt;statement&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;na&quot;&gt;setString&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;3&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;valueOf&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;i&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;));&lt;/span&gt;
+        &lt;span class=&quot;n&quot;&gt;statement&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;na&quot;&gt;execute&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;();&lt;/span&gt;
+        &lt;span class=&quot;n&quot;&gt;statement&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;na&quot;&gt;close&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;();&lt;/span&gt;
+    &lt;span class=&quot;o&quot;&gt;}&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;connection&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;na&quot;&gt;commit&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;();&lt;/span&gt;
+&lt;span class=&quot;o&quot;&gt;}&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;h2 id=&quot;ormmybatis&quot;&gt;ORM(Mybatis)&lt;/h2&gt;
+
+&lt;h3 id=&quot;single-inserts-1&quot;&gt;Single inserts&lt;/h3&gt;
+
+&lt;blockquote&gt;
+  &lt;p&gt;Cost 41350ms&lt;/p&gt;
+&lt;/blockquote&gt;
+
+&lt;div class=&quot;language-java highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;kd&quot;&gt;public&lt;/span&gt; &lt;span class=&quot;kt&quot;&gt;void&lt;/span&gt; &lt;span class=&quot;nf&quot;&gt;handle&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;()&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;{&lt;/span&gt;
+  &lt;span class=&quot;k&quot;&gt;for&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;nc&quot;&gt;Person&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;person&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;persons&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;)&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;{&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;mapper&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;na&quot;&gt;insert&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;person&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;);&lt;/span&gt;
+  &lt;span class=&quot;o&quot;&gt;}&lt;/span&gt;
+&lt;span class=&quot;o&quot;&gt;}&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;h3 id=&quot;batch-insert-1&quot;&gt;Batch insert&lt;/h3&gt;
+
+&lt;blockquote&gt;
+  &lt;p&gt;Cost 22141ms&lt;br /&gt;
+Cost 1191ms (enable rewriteBatchStatements)&lt;/p&gt;
+&lt;/blockquote&gt;
+
+&lt;div class=&quot;language-java highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;kd&quot;&gt;public&lt;/span&gt; &lt;span class=&quot;kt&quot;&gt;void&lt;/span&gt; &lt;span class=&quot;nf&quot;&gt;handle&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;()&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;{&lt;/span&gt;
+  &lt;span class=&quot;nc&quot;&gt;PersonMapper&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;mapper&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;sqlSession&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;na&quot;&gt;getMapper&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;nc&quot;&gt;PersonMapper&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;na&quot;&gt;class&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;);&lt;/span&gt;
+  &lt;span class=&quot;k&quot;&gt;for&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;nc&quot;&gt;Person&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;person&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;persons&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;)&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;{&lt;/span&gt;
+      &lt;span class=&quot;n&quot;&gt;mapper&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;na&quot;&gt;insert&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;person&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;);&lt;/span&gt;
+  &lt;span class=&quot;o&quot;&gt;}&lt;/span&gt;
+  &lt;span class=&quot;n&quot;&gt;sqlSession&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;na&quot;&gt;commit&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;();&lt;/span&gt;
+&lt;span class=&quot;o&quot;&gt;}&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;h3 id=&quot;bulk-insert&quot;&gt;Bulk insert&lt;/h3&gt;
+
+&lt;blockquote&gt;
+  &lt;p&gt;Cost 1170ms&lt;/p&gt;
+&lt;/blockquote&gt;
+
+&lt;div class=&quot;language-java highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;kd&quot;&gt;public&lt;/span&gt; &lt;span class=&quot;kt&quot;&gt;void&lt;/span&gt; &lt;span class=&quot;nf&quot;&gt;handle&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;()&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;{&lt;/span&gt;
+  &lt;span class=&quot;n&quot;&gt;personMapper&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;na&quot;&gt;insertList&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;persons&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;);&lt;/span&gt;
+&lt;span class=&quot;o&quot;&gt;}&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;</content><author><name></name></author><category term="Database" /><summary type="html">基于 MySQL 对数据库批量插入的性能研究</summary></entry><entry><title type="html">工具资源</title><link href="https://sakaman.github.io/other/2022/06/28/%E5%B7%A5%E5%85%B7%E8%B5%84%E6%BA%90/" rel="alternate" type="text/html" title="工具资源" /><published>2022-06-28T00:00:00+00:00</published><updated>2022-06-28T00:00:00+00:00</updated><id>https://sakaman.github.io/other/2022/06/28/%E5%B7%A5%E5%85%B7%E8%B5%84%E6%BA%90</id><content type="html" xml:base="https://sakaman.github.io/other/2022/06/28/%E5%B7%A5%E5%85%B7%E8%B5%84%E6%BA%90/">&lt;p&gt;一些常用、备用资源&lt;/p&gt;
+
+&lt;h2 id=&quot;资源&quot;&gt;资源&lt;/h2&gt;
+&lt;ul&gt;
+  &lt;li&gt;
+    &lt;h3 id=&quot;yyetsbot&quot;&gt;&lt;a href=&quot;https://github.com/sakaman/YYeTsBot&quot;&gt;YYeTsBot&lt;/a&gt;&lt;/h3&gt;
+  &lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;h2 id=&quot;文章&quot;&gt;文章&lt;/h2&gt;
+&lt;ul&gt;
+  &lt;li&gt;
+    &lt;h3 id=&quot;java-memory-model&quot;&gt;&lt;a href=&quot;https://www.cs.umd.edu/users/pugh/java/memoryModel/&quot;&gt;Java Memory Model&lt;/a&gt;&lt;/h3&gt;
+  &lt;/li&gt;
+&lt;/ul&gt;</content><author><name></name></author><category term="Other" /><summary type="html">一些常用、备用资源</summary></entry></feed>

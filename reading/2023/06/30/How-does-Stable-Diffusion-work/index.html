@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="en-US">
+  <head>
+    <!-- General meta -->
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <title>How does Stable Diffusion work – Desnowy – Normal people from Zhai</title>
+
+        <meta charset="utf-8" />
+    <meta content='text/html; charset=utf-8' http-equiv='Content-Type'>
+    <meta http-equiv='X-UA-Compatible' content='IE=edge'>
+    <meta name='viewport' content='width=device-width, initial-scale=1.0, maximum-scale=1.0'>
+
+    
+    <meta name="description" content="本文翻译 https://stable-diffusion-art.com/how-stable-diffusion-work/
+
+" />
+    <meta property="og:description" content="本文翻译 https://stable-diffusion-art.com/how-stable-diffusion-work/
+
+" />
+    
+    <meta name="author" content="Desnowy" />
+
+    
+    <meta property="og:title" content="How does Stable Diffusion work" />
+    <meta property="twitter:title" content="How does Stable Diffusion work" />
+    
+    
+  
+    <link rel="icon" type="image/png" href="/assets/logo@16px.png" sizes="16x16">
+    <link rel="apple-touch-icon" sizes="16x16" href="/assets/logo@16px.png">
+  
+    <link rel="icon" type="image/png" href="/assets/logo@32px.png" sizes="32x32">
+    <link rel="apple-touch-icon" sizes="32x32" href="/assets/logo@32px.png">
+  
+    <link rel="icon" type="image/png" href="/assets/logo@96px.png" sizes="96x96">
+    <link rel="apple-touch-icon" sizes="96x96" href="/assets/logo@96px.png">
+  
+    <link rel="icon" type="image/png" href="/assets/logo@120px.png" sizes="120x120">
+    <link rel="apple-touch-icon" sizes="120x120" href="/assets/logo@120px.png">
+  
+    <link rel="icon" type="image/png" href="/assets/logo@144px.png" sizes="144x144">
+    <link rel="apple-touch-icon" sizes="144x144" href="/assets/logo@144px.png">
+  
+    <link rel="icon" type="image/png" href="/assets/logo@180px.png" sizes="180x180">
+    <link rel="apple-touch-icon" sizes="180x180" href="/assets/logo@180px.png">
+  
+    <link rel="icon" type="image/png" href="/assets/logo@512px.png" sizes="512x512">
+    <link rel="apple-touch-icon" sizes="512x512" href="/assets/logo@512px.png">
+  
+    <link rel="icon" type="image/png" href="/assets/logo@1024px.png" sizes="1024x1024">
+    <link rel="apple-touch-icon" sizes="1024x1024" href="/assets/logo@1024px.png">
+  
+
+<link rel="shortcut icon" href="">
+
+
+    <!--[if lt IE 9]>
+      <script src="http://html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+
+    <link rel="stylesheet" type="text/css" href="/style.css" />
+    <link rel="alternate" type="application/rss+xml" title="Desnowy - Normal people from Zhai" href="/feed.xml" />
+    <link rel="manifest" href="/manifest.json">
+
+    <!-- Created with Jekyll Now - http://github.com/barryclark/jekyll-now -->
+  </head>
+
+  <body>
+    <div class="wrapper-masthead">
+      <div class="container">
+        <header class="masthead clearfix">
+          <a href="/" class="site-avatar"><img src="/assets/logo@1024px.png" /></a>
+
+          <div class="site-info">
+            <h1 class="site-name"><a href="/">Desnowy</a></h1>
+            <p class="site-description">Normal people from Zhai</p>
+          </div>
+
+          <nav>
+            <a href="/">Blog</a>
+            <a href="/categories">Categories</a>
+            <a href="/search">Search</a>
+            <a href="/about">About</a>
+          </nav>
+        </header>
+      </div>
+    </div>
+
+    <div id="main" role="main" class="container">
+      <main class="main  container">
+  
+  <div class="toc">
+    <h2>Table of Contents</h2>
+    <ul id="toc" class="section-nav">
+<li class="toc-entry toc-h1"><a href="#稳定扩散能做什么">稳定扩散能做什么</a></li>
+<li class="toc-entry toc-h1"><a href="#扩散模型">扩散模型</a>
+<ul>
+<li class="toc-entry toc-h2"><a href="#前向扩散">前向扩散</a></li>
+<li class="toc-entry toc-h2"><a href="#反向扩散">反向扩散</a></li>
+</ul>
+</li>
+<li class="toc-entry toc-h1"><a href="#训练是如何进行的">训练是如何进行的</a>
+<ul>
+<li class="toc-entry toc-h2"><a href="#reverse-diffusion">Reverse diffusion</a></li>
+</ul>
+</li>
+<li class="toc-entry toc-h1"><a href="#稳定扩散模型">稳定扩散模型</a>
+<ul>
+<li class="toc-entry toc-h2"><a href="#潜在扩散模型latent-diffusion-model">潜在扩散模型（Latent diffusion model）</a></li>
+<li class="toc-entry toc-h2"><a href="#变分自动编码器variational-autoencoder">变分自动编码器（Variational Autoencoder）</a></li>
+<li class="toc-entry toc-h2"><a href="#图像分辨率image-resolution">图像分辨率（Image resolution）</a></li>
+<li class="toc-entry toc-h2"><a href="#为什么潜在空间是可能的why-is-latent-space-possible">为什么潜在空间是可能的（Why is latent space possible）</a></li>
+<li class="toc-entry toc-h2"><a href="#潜在空间中的反向扩散reverse-diffusion-in-latent-space">潜在空间中的反向扩散（Reverse diffusion in latent space）</a></li>
+<li class="toc-entry toc-h2"><a href="#vae文件是什么what-is-a-vae-file">VAE文件是什么（What is a VAE file）</a></li>
+</ul>
+</li>
+<li class="toc-entry toc-h1"><a href="#调理conditioning">调理（Conditioning）</a>
+<ul>
+<li class="toc-entry toc-h2"><a href="#文本调节text-conditioningtext-to-image">文本调节（Text conditioning「text-to-image」）</a>
+<ul>
+<li class="toc-entry toc-h3"><a href="#分词器tokenizer">分词器（Tokenizer）</a></li>
+<li class="toc-entry toc-h3"><a href="#嵌入embedding">嵌入（Embedding）</a></li>
+<li class="toc-entry toc-h3"><a href="#将嵌入提供给噪声预测器feeding-embeddings-to-noise-predictor">将嵌入提供给噪声预测器（Feeding embeddings to noise predictor）</a></li>
+<li class="toc-entry toc-h3"><a href="#交叉注意力cross-attention">交叉注意力（Cross-attention）</a></li>
+</ul>
+</li>
+<li class="toc-entry toc-h2"><a href="#其他条件other-conditionings">其他条件（Other conditionings）</a></li>
+</ul>
+</li>
+<li class="toc-entry toc-h1"><a href="#逐步稳定扩散stable-diffusion-step-by-step">逐步稳定扩散（Stable Diffusion step-by-step）</a>
+<ul>
+<li class="toc-entry toc-h2"><a href="#文本转图像text-to-image">文本转图像（Text-to-image）</a></li>
+<li class="toc-entry toc-h2"><a href="#噪音表noise-schedule">噪音表（Noise schedule）</a></li>
+<li class="toc-entry toc-h2"><a href="#图像到图像image-to-image">图像到图像（Image-to-image）</a></li>
+<li class="toc-entry toc-h2"><a href="#修复">修复</a></li>
+<li class="toc-entry toc-h2"><a href="#深度到图像depth-to-image">深度到图像（depth-to-image）</a></li>
+</ul>
+</li>
+<li class="toc-entry toc-h1"><a href="#cfg值是什么what-is-cfg-value">CFG值是什么（What is CFG value）</a>
+<ul>
+<li class="toc-entry toc-h2"><a href="#分类器指导classifier-guidance">分类器指导（classifier guidance）</a></li>
+<li class="toc-entry toc-h2"><a href="#无分类器指导classifier-free-guidance">无分类器指导（classifier-free guidance）</a>
+<ul>
+<li class="toc-entry toc-h3"><a href="#cfg值cfg-value">CFG值（CFG value）</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toc-entry toc-h1"><a href="#stable-diffusion-v1-vs-v2">Stable Diffusion v1 vs v2</a>
+<ul>
+<li class="toc-entry toc-h2"><a href="#模型差异model-difference">模型差异（Model difference）</a></li>
+<li class="toc-entry toc-h2"><a href="#训练数据差异training-data-difference">训练数据差异（Training data difference）</a></li>
+<li class="toc-entry toc-h2"><a href="#结果差异outcome-difference">结果差异（Outcome difference）</a></li>
+</ul>
+</li>
+</ul>
+  </div>      
+  
+  <article class="post">
+    <h1>How does Stable Diffusion work</h1>
+    
+
+<small class="small  post-meta">
+  
+  
+    
+      <span class="label  label--category"><a href="/categories/#reading">Reading</a></span>
+    
+  &nbsp;&middot;&nbsp;<time datetime="2023-06-30T00:00:00+00:00" class="time">30 Jun 2023</time>
+</small>
+
+    
+    <div class="entry">
+      <p>本文翻译 https://stable-diffusion-art.com/how-stable-diffusion-work/</p>
+
+<p>Stable Diffusion: 稳定扩散</p>
+
+<p>Stable Diffusion是一种深度学习模型。</p>
+
+<h1 id="稳定扩散能做什么">稳定扩散能做什么</h1>
+
+<p>最简单的形式，稳定扩散是一种文本到图像模型（text-to-image）。给它一个文字提示（text prompt），将返回与文本匹配的图像。
+<img src="/assets/images/Stable Diffusion/Pasted%20image%2020230703233013.png" alt="Stable diffusion将文字提示转变成图像" /></p>
+
+<h1 id="扩散模型">扩散模型</h1>
+
+<p>Stable Diffusion属于一类称为扩散模型（diffusion models）的深度学习模型，是旨在生成与训练中类似数据的生成模型。在稳定Stable Diffusion的情况下，数据是图像。</p>
+
+<p>为什么称为扩散模型？是由于它的数学看起来像物理学中的扩散。</p>
+
+<p>假设只用两张图训练了一个扩散模型：猫和狗。在下图中，左边的两个峰代表猫和狗图像组。</p>
+
+<h2 id="前向扩散">前向扩散</h2>
+
+<p><img src="/assets/images/Stable Diffusion/Pasted%20image%2020230704130912.png" alt="前向扩散将照片变成噪声" /></p>
+
+<p>前向扩散（Forward diffusion）过程中，向训练图像添加噪声，逐渐将其变成无特征的噪声图像。最终，将无法分辨图片最初是狗或者猫。</p>
+
+<p>就像一滴墨水落入一杯水中，墨滴在水中扩散，几分钟后，随机分布在整个水中，无法判断最初是落在中心还是边缘附近。</p>
+
+<p><img src="/assets/images/Stable Diffusion/Pasted%20image%2020230704131550.png" alt="猫图像的前向扩散" /></p>
+
+<h2 id="反向扩散">反向扩散</h2>
+
+<p>如何逆转扩散？像倒放视频一样，倒退时间，将会看见墨滴最初滴落的位置。</p>
+
+<p><img src="/assets/images/Stable Diffusion/Pasted%20image%2020230704204244.png" alt="反向扩散过程恢复图像" /></p>
+
+<p>从技术上讲，每个扩散都有两个部分：（1）漂移（drift）、（2）随机运动（random）。反向扩散图像会偏向猫或狗，而不会介于两者中间。</p>
+
+<h1 id="训练是如何进行的">训练是如何进行的</h1>
+
+<p>反向扩散的想法是巧妙而优雅的。</p>
+
+<p>为了反转扩散，需要知道图像中添加了多少噪声——通过训练神经网络模型来预测添加的噪声。在Stable Diffusion中，被称为噪声预测器——一个U-Net模型。训练过程如下：</p>
+
+<ol>
+  <li>选择一张训练图像，比如猫。</li>
+  <li>生成随机噪声图像。</li>
+  <li>通过一定数量的步骤，添加噪声图片来破坏训练的图像。</li>
+  <li>教噪声训练器反馈添加的噪声数量——通过调整权重并且向他展示正确答案。</li>
+</ol>
+
+<p><img src="/assets/images/Stable Diffusion/Pasted%20image%2020230704214357.png" alt="按步骤依次添加噪声，噪声预测器估算每一步添加的总噪声" /></p>
+
+<p>训练后，具备一个能够估计添加到图像中的噪声的噪声预测器。</p>
+
+<h2 id="reverse-diffusion">Reverse diffusion</h2>
+
+<p>如何使用噪声预测器？</p>
+
+<p>首先生成一个完全随机的图像，让噪声预测器告知噪声。然后从原始图像中减去估计的噪声，重复此过程几次，将获得猫或狗的图像。</p>
+
+<p><img src="/assets/images/Stable Diffusion/Pasted%20image%2020230704233511.png" alt="反向扩散的工作原理是连续从图像中减去预测的噪声" /></p>
+
+<p>但是目前无法控制生成猫或狗的图像，图像生成是无条件的。</p>
+
+<p>有关反向扩散采样和采样器的<a href="https://stable-diffusion-art.com/samplers/_">更多信息</a>。</p>
+
+<h1 id="稳定扩散模型">稳定扩散模型</h1>
+
+<p>上述扩散过程是在图像空间中进行的，不是稳定扩散的工作原理，无法在单个GPU上运行。</p>
+
+<p>图像空间是巨大的。试想：三个颜色通道（红、蓝、绿）的512×512图像具有786432维的空间。</p>
+
+<p>类似<a href="https://imagen.research.google/">Imagen</a>和<a href="https://openai.com/dall-e-2/">DALL-E</a>的扩散模型都在像素空间中，虽然使用了一些技巧来加速模型，但是仍然不够。</p>
+
+<h2 id="潜在扩散模型latent-diffusion-model">潜在扩散模型（Latent diffusion model）</h2>
+
+<p>Stable Diffusion旨在解决速度问题。</p>
+
+<p>Stable Diffusion是一种潜在扩散模型。它不是在高维图像空间中操作，而是首先将图像压缩到潜在空间中。潜在空间小了48倍，因此降低了处理次数——变快的原因。</p>
+
+<h2 id="变分自动编码器variational-autoencoder">变分自动编码器（Variational Autoencoder）</h2>
+
+<p>上述过程是通过一种变分自动编码器的技术实现。</p>
+
+<p>变分自动编码器神经网络有两部分：（1）编码器、（2）解码器。编码器将图像压缩为潜在空间中的低维表示，解码器从潜在空间中恢复图像。</p>
+
+<p><img src="/assets/images/Stable Diffusion/Pasted%20image%2020230705184739.png" alt="变分自动编码器将图像转换到潜在空间或从潜在空间转换图像" /></p>
+
+<p>稳定扩散模型的潜在空间是4×64×64，比图像像素空间小48倍。所有前向和反向扩散实际上都是在潜在空间中完成的。</p>
+
+<p>因此，在训练过程中，不会生成噪声图像，而是在潜在空间（潜在噪声）中生成随机张量。不是用噪声破坏图像，而是用潜在噪声破坏图像在潜在空间中的表示。由于潜在空间小，所以速度快很多。</p>
+
+<h2 id="图像分辨率image-resolution">图像分辨率（Image resolution）</h2>
+
+<p>图像分辨率反映在潜在图像张量上，512×512图像的潜在图像大小仅为4×64×6，768×512肖像图的潜在图像为4×96×96。因此需要更长、更多的VRAM才能生成更大的图像。</p>
+
+<p>由于Stable Diffusion v1是在512×512图像上进行了微调（fine-tuned），因此生成大于512×512的图像可能会得到重复的图像，比如两个头。如果是必须的，至少在一侧保留512像素，并用<a href="https://stable-diffusion-art.com/ai-upscaler/">AI升级器</a>获得更高的分辨率。</p>
+
+<h2 id="为什么潜在空间是可能的why-is-latent-space-possible">为什么潜在空间是可能的（Why is latent space possible）</h2>
+
+<p>为什么VAE可以将图像压缩到更小的潜在空间而不丢失信息——原因是自然图像不是随机的，它们具有高度的规律性：面部遵循眼睛、鼻子、脸颊和嘴巴之间的特定空间关系。换而言之，图像的高维性是认为的。自然图像可以很容易地压缩到更小的潜在空间中，而不会丢失任何信息——在机器学习中被称为流行假设（manifold hypothesis）。</p>
+
+<h2 id="潜在空间中的反向扩散reverse-diffusion-in-latent-space">潜在空间中的反向扩散（Reverse diffusion in latent space）</h2>
+
+<p>稳定扩散中潜在反向扩散的工作原理：</p>
+
+<ol>
+  <li>生成随机潜在空间矩阵。</li>
+  <li>噪声预测器估算潜在矩阵的噪声。</li>
+  <li>从潜在矩阵中减去估算的噪声。</li>
+  <li>重复步骤2&amp;3直至达到特定的采样步骤。</li>
+  <li>VAE解码器将潜在矩阵转换为最终图像。</li>
+</ol>
+
+<h2 id="vae文件是什么what-is-a-vae-file">VAE文件是什么（What is a VAE file）</h2>
+
+<p>在Stable Diffusion v1中，VAE文件被用来改善眼睛和面部，即前面提到的自动编码器的解码器。通过进一步微调解码器，模型可以绘制更精细的细节。</p>
+
+<p>将图像压缩到潜在空间会丢失信息，是因为原始VAE无法恢复精细细节，但是，VAE解码器能够负责绘制精细的细节。</p>
+
+<h1 id="调理conditioning">调理（Conditioning）</h1>
+
+<p>目前我们的理解尚不完整：文字提示如何进入图片？没有文本，stable diffusion就不是text-to-image 模型，将会得到无法控制的猫或狗的图像。</p>
+
+<p>所以需要用到调理——引导噪声预测器，以便在从图像中减去预测的噪声后，能够提供预想的图像。</p>
+
+<h2 id="文本调节text-conditioningtext-to-image">文本调节（Text conditioning「text-to-image」）</h2>
+
+<p>Tokenizer首先将提示中的每个单词转换为称为词元（token）的数字，然后每个token被转换为768个值的向量——嵌入（embedding）。这些embeddings随后由文本转换器（text transformer）进行处理，提供给噪声预测器使用。</p>
+
+<p><img src="/assets/images/Stable Diffusion/Pasted%20image%2020230705232627.png" alt="如何处理文本提示并将其输入噪声预测器以引导图像生成" /></p>
+
+<h3 id="分词器tokenizer">分词器（Tokenizer）</h3>
+
+<p><img src="/assets/images/Stable Diffusion/Pasted%20image%2020230705233056.png" alt="分词器" /></p>
+
+<p>词元化（tokenization）是计算机理解单词的方式。人类可以读取文字，但是计算机只能读取数字，所以需要将文本提示中的单词转换为数字。</p>
+
+<p>分词器只能对训练期间的单词进行分词。例如，CLIP模型中有“dream”和“beach”，但没有“dreambeanch”。分词器会将“dreambeach”一词分解为两个词元，“dream”和“beach”，所以一个词并不总意味一个词元。</p>
+
+<p>另外空格字符也是词元的一部分。上述例子中，“dream beach”和“dreambeach”生成的词元不同。</p>
+
+<p>Stable Diffusion模型仅限于在提示中使用75个词元。</p>
+
+<h3 id="嵌入embedding">嵌入（Embedding）</h3>
+
+<p><img src="/assets/images/Stable Diffusion/Pasted%20image%2020230706234815.png" alt="Embedding" /></p>
+
+<p>Stable diffusion v1使用Open AI的ViT-L/14 Clip模型，其中Embedding是一个768个值的向量，每一个词元都有自己独特的嵌入向量。Embedding由在训练过程中学习的CLIP模型固定。</p>
+
+<p>为什么需要embedding？因为有些词彼此之间密切相关，而我们想要利用这些信息。例如，man、gentleman、guy的嵌入几乎相同，因为它们可以互相转换使用。Monet、Manet、Degas都是用不同的方式以印象派风格作画，这些名称具有接近但不相同的嵌入。</p>
+
+<p>这与使用关键词触发的嵌入相同，嵌入可以发挥魔法。科学家已经证实找到正确的嵌入可以触发任意对象和样式——一种称为文本反转（textual inversion）的微调技术。</p>
+
+<h3 id="将嵌入提供给噪声预测器feeding-embeddings-to-noise-predictor">将嵌入提供给噪声预测器（Feeding embeddings to noise predictor）</h3>
+
+<p><img src="/assets/images/Stable Diffusion/Pasted%20image%2020230706235738.png" alt="从嵌入到噪声预测器" /></p>
+
+<p>在输入噪声预测器之前，嵌入需要由文本转换器（text transformer）进一步处理。transformer像一个通用适配器，输入文本嵌入向量，也可以像类标签、图像、深度图之类的其它东西。transformer不仅进一步处理数据，也提供提供一种包含不同调节模式/训练方式（conditioning modalities）的机制。</p>
+
+<h3 id="交叉注意力cross-attention">交叉注意力（Cross-attention）</h3>
+
+<p>整个U-Net中的噪声预测器多次使用文本转换器的输出，U-Net通过交叉注意力机制来消耗它，即提示（prompt）和图像（image）的结合处。</p>
+
+<p>以提示“A man with blue eyes”为例，stable diffusion将“blue”、“eyes”两个词配对在一起（提示中的自我关注），这样即会生成一个蓝眼睛的男人，而不是一个穿蓝色衬衫的男人。然后，使用此信息引导反向扩散至包含蓝眼睛的图像（提示和图像之间的交叉注意力）。</p>
+
+<p>旁注：超网络（Hypernetwork），一种调优稳定扩散模型的技术，通过劫持交叉注意力网络来插入样式。LoRA models修改交叉注意力模块的权重来改变风格，单独修改这个模块就可以调优Stable Diffusion模型。</p>
+
+<h2 id="其他条件other-conditionings">其他条件（Other conditionings）</h2>
+
+<p>文本提示并不是调节Stable Diffusion模型的唯一方法。文本提示（text prompt）和深度图像（depth image）都用于调节深度到图像（depth-to-image）模型。</p>
+
+<p>ControlNet使用检测到的轮廓、人体姿势等来调节噪声预测器，并实现对图像生成的出色控制。</p>
+
+<h1 id="逐步稳定扩散stable-diffusion-step-by-step">逐步稳定扩散（Stable Diffusion step-by-step）</h1>
+
+<h2 id="文本转图像text-to-image">文本转图像（Text-to-image）</h2>
+
+<p>在文本转图像中，给stable diffusion提供文本提示，将返回图像。</p>
+
+<p>Step 1：Stable Diffusion在潜在空间中生成随机张量，可以通过设置随机数生成器种子在控制该张量。如果将种子设置为某个值，将始终获得相同的随机张量——即潜在空间中的图像，目前全是噪音。</p>
+
+<p><img src="/assets/images/Stable Diffusion/Pasted%20image%2020230707185212.png" alt="在潜在空间中生成随机张量" /></p>
+
+<p>Step 2：噪声预测器U-Net将潜在噪声图像和文本提示作为输入，并在潜在空间（一个4×64×64张量）中预测噪声。</p>
+
+<p><img src="/assets/images/Stable Diffusion/Pasted%20image%2020230707185345.png" alt="" /></p>
+
+<p>Step 3：从潜在空间中减去潜在噪声，得到新的潜像。</p>
+
+<p><img src="/assets/images/Stable Diffusion/Pasted%20image%2020230707185428.png" alt="" /></p>
+
+<p>重复步骤2&amp;步骤3一定数量的采样步骤。</p>
+
+<p>Step 4：最后，VAE的解码器将潜在图像转换回像素空间，得到运行稳定扩散后的图像。</p>
+
+<p><img src="/assets/images/Stable Diffusion/Pasted%20image%2020230707185557.png" alt="" /></p>
+
+<p>下面是图像在每个采样步骤中的演变方式。</p>
+
+<p><img src="/assets/images/Stable%20Diffusion/cat_euler_15.webp" alt="每个采样步骤的图像" /></p>
+
+<h2 id="噪音表noise-schedule">噪音表（Noise schedule）</h2>
+
+<p>图像从模糊变得清晰（noisy to clean），试图得到每个采样步骤中获得预期的噪声——噪声表（noise schedule）。</p>
+
+<p><img src="/assets/images/Stable Diffusion/Pasted%20image%2020230707190337.png" alt="15个采样步骤的噪声表" /></p>
+
+<p>噪声序列表是我们定义的，可以选择在每一步减去相同数量的噪声，或者在开始时减去更多。采样器在每一步中减去足够的噪声，以在下一步中达到预期噪声。</p>
+
+<h2 id="图像到图像image-to-image">图像到图像（Image-to-image）</h2>
+
+<p>Image-to-image是<a href="https://arxiv.org/abs/2108.01073">SDEdit</a>方法中首次提出的方法，可应用于任何扩散模型。因此，我们有图像到图像的稳定扩散（潜在扩散模型）。</p>
+
+<p>输入图像和文本提示被输入到image-to-image，生成的图像将受到输入图像和文本提示的限制。例如，使用这张业余绘画和提示“photo of perfect green apple with stem, water droplets, dramatic lighting”作为输入，图像到图像可以将其变成专业绘画。</p>
+
+<p><img src="/assets/images/Stable Diffusion/Pasted%20image%2020230707222138.png" alt="图像到图像" /></p>
+
+<p>下面是分布过程：</p>
+
+<p>Step 1：输入图像被编码到潜在空间。</p>
+
+<p><img src="/assets/images/Stable Diffusion/Pasted%20image%2020230707222634.png" alt="" /></p>
+
+<p>Step 2：将噪声添加到潜像中，去噪强度（denoising strength）控制添加的噪声量。如果为0，不添加噪声；如果为1，添加最大量的噪声，使潜像称为完全随机的张量。</p>
+
+<p><img src="/assets/images/Stable Diffusion/Pasted%20image%2020230707223309.png" alt="" /></p>
+
+<p>Step 3：噪声预测器U-Net将潜在噪声图像和文本提示作为输入，并预测潜在空间（4×64×64张量）中的噪声。</p>
+
+<p><img src="/assets/images/Stable Diffusion/Pasted%20image%2020230707223512.png" alt="" /></p>
+
+<p>Step 4：从潜在图像中减去潜在噪声，变成新的潜像。</p>
+
+<p><img src="/assets/images/Stable Diffusion/Pasted%20image%2020230707224025.png" alt="" /></p>
+
+<p>重复步骤3&amp;步骤4至采样步骤的一定数量。</p>
+
+<p>Step 5：最后，VAE的解码器将潜像转换回像素空间，得到运行image-to-image后的图像。</p>
+
+<p><img src="/assets/images/Stable Diffusion/Pasted%20image%2020230707224502.png" alt="" /></p>
+
+<p>所以，图像到图像——设置带有一点噪声和一点输入图像的初始潜在图像，设置去噪强度为1相当于文本转图像，因为初始潜像完全是随机噪声。</p>
+
+<h2 id="修复">修复</h2>
+
+<p>修复只是图像到图像的一种特殊情况，噪声会被添加到想要修复的图像部分，噪声量同样有降噪强度控制。</p>
+
+<h2 id="深度到图像depth-to-image">深度到图像（depth-to-image）</h2>
+
+<p>深度到图像是图像到图像的增强，使用深度图（depth map）生成带有附加条件的新图像。</p>
+
+<p>Step 1：输入图像被编码为潜在状态。</p>
+
+<p><img src="/assets/images/Stable Diffusion/Pasted%20image%2020230707225704.png" alt="" /></p>
+
+<p>Step 2：<a href="https://github.com/isl-org/MiDaS">MiDaS</a>（一种AI深度模型）根据输入图像估算深度图。</p>
+
+<p><img src="/assets/images/Stable Diffusion/Pasted%20image%2020230707225815.png" alt="" /></p>
+
+<p>Step 3：将噪声添加到潜像中，去噪强度控制被添加的噪声量。如果去噪强度为0，不添加噪声；去噪强度为1，添加最大噪声，使得潜像变成随机张量。</p>
+
+<p><img src="/assets/images/Stable Diffusion/Pasted%20image%2020230707230140.png" alt="" /></p>
+
+<p>Step 4：噪声预测器根据文本提示和深度图估算潜在空间的噪声。</p>
+
+<p><img src="/assets/images/Stable Diffusion/Pasted%20image%2020230707230247.png" alt="" /></p>
+
+<p>Step 5：从潜像中减去潜在噪声，得到新的潜像。</p>
+
+<p><img src="/assets/images/Stable Diffusion/Pasted%20image%2020230707230315.png" alt="" /></p>
+
+<p>重复采样步骤数的步骤4&amp;5。</p>
+
+<p>Step 6：VAE的解码器对潜像进行解码，将获得从深度到图像的最终图像。</p>
+
+<p><img src="/assets/images/Stable Diffusion/Pasted%20image%2020230707230522.png" alt="" /></p>
+
+<h1 id="cfg值是什么what-is-cfg-value">CFG值是什么（What is CFG value）</h1>
+
+<p>无分类器指导（Classifier-Free Guidance）（CFG），前身：分类指导（classifier guidance）。</p>
+
+<h2 id="分类器指导classifier-guidance">分类器指导（classifier guidance）</h2>
+
+<p><a href="https://arxiv.org/abs/2105.05233">分类器</a>指导是一种将图像标签（image labels）合并到扩散模型中的方法，可以使用标签来指导扩散过程。例如，标签“cat”引导反向扩散过程生成猫的照片。</p>
+
+<p>分类器指导尺度（classifier guidance scale）是控制扩散过程遵循标签程度的参数。</p>
+
+<p>例如，假设有3组图像，标签为“cat”、“dog”、“human”。若扩散是无引导的，模型将从每组总的群体抽取样本，但是有时候可能会抽取适合两个标签的图像，比如一个男孩在抚摸一只狗。</p>
+
+<p><img src="/assets/images/Stable Diffusion/Pasted%20image%2020230708175140.png" alt="分类器指导，左：无引导，中：小指导程度，有：大指导程度" /></p>
+
+<p>在高分类器指导下，扩散模型生成的图像将偏向极端或明确的示例。如果向模型寻求一只猫，它会返回一张明确是猫的图像，除此之外别无他法。</p>
+
+<p>分类器指导尺度控制指导的遵循程度。上图中，右边的采样比中间的采样具有更高的分类器指导尺度。实际上，该比例值只是带有该标签数据的漂移项的乘数。</p>
+
+<h2 id="无分类器指导classifier-free-guidance">无分类器指导（classifier-free guidance）</h2>
+
+<p>尽管分类器指导实现了破纪录的性能，但它需要一个额外的模型来提供该指导，这给训练带来了一些困难。</p>
+
+<p>无分类指导（<a href="**[Classifier-free guidance](https://arxiv.org/abs/2207.12598)**">classifier-free guidance</a>）是一种实现“没有分类器的分类器指导”的方法，没有使用类标签和单独的模型进行指导，而是使用图像标题训练条件扩散模型（conditional diffusion model），就像上述文本到图像的模型一样。</p>
+
+<p>将分类器部分作为调节噪声预测器U-Net，实现图像生成中的“无分类器”指导。</p>
+
+<h3 id="cfg值cfg-value">CFG值（CFG value）</h3>
+
+<p>通过调节获得了一个无分类器扩散过程，如何控制遵循指导的量？</p>
+
+<p>无分类器指导比例是一个控制文本提示对扩散过程影响程度的值，当值为0时，图像生成是无条件的（无提示），较高的值将引导扩散至提示。</p>
+
+<h1 id="stable-diffusion-v1-vs-v2">Stable Diffusion v1 vs v2</h1>
+
+<h2 id="模型差异model-difference">模型差异（Model difference）</h2>
+
+<p>Stable Diffusion v2使用<a href="https://stability.ai/blog/stable-diffusion-v2-release">OpenClip</a>进行文本嵌入，Stable Diffusion使用Open AI的CLIP <a href="https://github.com/CompVis/stable-diffusion">ViT-L/14</a>进行文本嵌入：</p>
+
+<ul>
+  <li>OpenClip扩大了5倍更大的文本编码器模型可以提高图像质量。</li>
+  <li>尽管Open AI的CLIP模型是开源的，但是这些模型使用专有数据进行训练。切换到OpenClip模型使研究和优化模型更透明，利于长远发展。</li>
+</ul>
+
+<h2 id="训练数据差异training-data-difference">训练数据差异（Training data difference）</h2>
+
+<p>Stable Diffusion v1.4训练：</p>
+
+<ul>
+  <li>laion2B-en数据集上以256×256的分辨率进行237k步（237k steps at resolution 256×256 on <a href="https://huggingface.co/datasets/laion/laion2B-en">laion2B-en</a> dataset.）</li>
+  <li>laion-high-resolution上以512×512分辨率进行194k步（194k steps at resolution 512×512 on <a href="https://huggingface.co/datasets/laion/laion-high-resolution">laion-high-resolution</a>.）</li>
+  <li>文本调节降低10%，laion-aesthetics v2 5+上以512×512进行225k步（225k steps at 512×512 on “<a href="https://laion.ai/blog/laion-aesthetics/">laion-aesthetics v2 5+</a>“, with 10% dropping of text conditioning.）</li>
+</ul>
+
+<p>Stable Diffusion v2训练：</p>
+
+<ul>
+  <li>550k steps at the resolution <code class="language-plaintext highlighter-rouge">256x256</code> on a subset of <a href="https://laion.ai/blog/laion-5b/">LAION-5B</a> filtered for explicit pornographic material, using the <a href="https://github.com/LAION-AI/CLIP-based-NSFW-Detector">LAION-NSFW classifier</a> with <code class="language-plaintext highlighter-rouge">punsafe=0.1</code> and an <a href="https://github.com/christophschuhmann/improved-aesthetic-predictor">aesthetic score</a> &gt;= <code class="language-plaintext highlighter-rouge">4.5</code>.</li>
+  <li>850k steps at the resolution <code class="language-plaintext highlighter-rouge">512x512</code> on the same dataset on images with resolution <code class="language-plaintext highlighter-rouge">&gt;= 512x512</code>.</li>
+  <li>150k steps using a <a href="https://arxiv.org/abs/2202.00512">v-objective</a> on the same dataset.</li>
+  <li>Resumed for another 140k steps on <code class="language-plaintext highlighter-rouge">768x768</code> images.</li>
+</ul>
+
+<p>Stable Diffusion v2.1在v2.0上进行了微调：</p>
+
+<ul>
+  <li>additional 55k steps on the same dataset (with <code class="language-plaintext highlighter-rouge">punsafe=0.1</code>)</li>
+  <li>another 155k extra steps with <code class="language-plaintext highlighter-rouge">punsafe=0.98</code></li>
+</ul>
+
+<p>所以基本上，都在最后的训练步骤中关闭了NSFW过滤器。</p>
+
+<h2 id="结果差异outcome-difference">结果差异（Outcome difference）</h2>
+
+<p>用户通常发现使用Stable Diffusion v2来控制风格和生成名人更困难，尽管Stability AI没有明确过滤艺术家和名人的名字，但是它们的效果在v2中很弱，可能是由于训练数据的差异造成的。Open AI的专有数据可能有更多艺术品和名人照片，数据可经过贵都过滤，因此看起来都更好。</p>
+
+    </div>
+  
+    <div class="date">
+      Written on June 30, 2023
+    </div>
+  
+    
+<div class="comments">
+	<!-- <div id="disqus_thread"></div>
+	<script type="text/javascript">
+
+	    var disqus_shortname = 'sakaman';
+
+	    (function() {
+	        var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+	        dsq.src = '//' + disqus_shortname + '.disqus.com/embed.js';
+	        (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+	    })();
+
+	</script> -->
+
+	<div id="gisqus_thread"></div>
+	<script src="https://giscus.app/client.js" data-repo="sakaman/sakaman.github.io" data-repo-id="R_kgDOHMUjFQ"
+    data-category="General" data-category-id="DIC_kwDOHMUjFc4CPANy" data-mapping="pathname" data-reactions-enabled="1"
+    data-emit-metadata="0" data-input-position="top" data-theme="light" data-lang="zh-CN" data-loading="lazy"
+    crossorigin="anonymous" async>
+    </script>
+	<!-- <noscript>Please enable JavaScript to view the <a href="http://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript> -->
+	<noscript>Please enable JavaScript to view the <a href="http://gisqus.com/?ref_noscript">comments powered by Gisqus.</a></noscript>
+</div>
+
+  </article>
+
+</main>
+
+    </div>
+
+    <div class="wrapper-footer">
+      <div class="container">
+        <footer class="footer">
+          
+
+
+
+<a href="https://github.com/sakaman/sakaman.github.io"><i class="svg-icon github"></i></a>
+
+
+
+
+
+
+
+
+          <script>
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('/sw.js')
+        })
+    }
+</script>
+        </footer>
+      </div>
+    </div>
+
+    
+
+  </body>
+</html>

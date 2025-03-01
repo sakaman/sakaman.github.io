@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en-US">
+  <head>
+    <!-- General meta -->
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <title>架构设计 – Desnowy – Normal people from Zhai</title>
+
+        <meta charset="utf-8" />
+    <meta content='text/html; charset=utf-8' http-equiv='Content-Type'>
+    <meta http-equiv='X-UA-Compatible' content='IE=edge'>
+    <meta name='viewport' content='width=device-width, initial-scale=1.0, maximum-scale=1.0'>
+
+    
+    <meta name="description" content="一些架构设计要点
+
+" />
+    <meta property="og:description" content="一些架构设计要点
+
+" />
+    
+    <meta name="author" content="Desnowy" />
+
+    
+    <meta property="og:title" content="架构设计" />
+    <meta property="twitter:title" content="架构设计" />
+    
+    
+  
+    <link rel="icon" type="image/png" href="/assets/logo@16px.png" sizes="16x16">
+    <link rel="apple-touch-icon" sizes="16x16" href="/assets/logo@16px.png">
+  
+    <link rel="icon" type="image/png" href="/assets/logo@32px.png" sizes="32x32">
+    <link rel="apple-touch-icon" sizes="32x32" href="/assets/logo@32px.png">
+  
+    <link rel="icon" type="image/png" href="/assets/logo@96px.png" sizes="96x96">
+    <link rel="apple-touch-icon" sizes="96x96" href="/assets/logo@96px.png">
+  
+    <link rel="icon" type="image/png" href="/assets/logo@120px.png" sizes="120x120">
+    <link rel="apple-touch-icon" sizes="120x120" href="/assets/logo@120px.png">
+  
+    <link rel="icon" type="image/png" href="/assets/logo@144px.png" sizes="144x144">
+    <link rel="apple-touch-icon" sizes="144x144" href="/assets/logo@144px.png">
+  
+    <link rel="icon" type="image/png" href="/assets/logo@180px.png" sizes="180x180">
+    <link rel="apple-touch-icon" sizes="180x180" href="/assets/logo@180px.png">
+  
+    <link rel="icon" type="image/png" href="/assets/logo@512px.png" sizes="512x512">
+    <link rel="apple-touch-icon" sizes="512x512" href="/assets/logo@512px.png">
+  
+    <link rel="icon" type="image/png" href="/assets/logo@1024px.png" sizes="1024x1024">
+    <link rel="apple-touch-icon" sizes="1024x1024" href="/assets/logo@1024px.png">
+  
+
+<link rel="shortcut icon" href="">
+
+
+    <!--[if lt IE 9]>
+      <script src="http://html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+
+    <link rel="stylesheet" type="text/css" href="/style.css" />
+    <link rel="alternate" type="application/rss+xml" title="Desnowy - Normal people from Zhai" href="/feed.xml" />
+    <link rel="manifest" href="/manifest.json">
+
+    <!-- Created with Jekyll Now - http://github.com/barryclark/jekyll-now -->
+  </head>
+
+  <body>
+    <div class="wrapper-masthead">
+      <div class="container">
+        <header class="masthead clearfix">
+          <a href="/" class="site-avatar"><img src="/assets/logo@1024px.png" /></a>
+
+          <div class="site-info">
+            <h1 class="site-name"><a href="/">Desnowy</a></h1>
+            <p class="site-description">Normal people from Zhai</p>
+          </div>
+
+          <nav>
+            <a href="/">Blog</a>
+            <a href="/categories">Categories</a>
+            <a href="/search">Search</a>
+            <a href="/about">About</a>
+          </nav>
+        </header>
+      </div>
+    </div>
+
+    <div id="main" role="main" class="container">
+      <main class="main  container">
+  
+  <div class="toc">
+    <h2>Table of Contents</h2>
+    <ul id="toc" class="section-nav">
+<li class="toc-entry toc-h2"><a href="#收益非技术本身">收益非技术本身</a></li>
+<li class="toc-entry toc-h2"><a href="#以应用服务和api为视角不以资源技术为视角">以应用服务和API为视角，不以资源、技术为视角</a></li>
+<li class="toc-entry toc-h2"><a href="#选择最主流成熟的技术">选择最主流、成熟的技术</a></li>
+<li class="toc-entry toc-h2"><a href="#完备性--性能">完备性 &gt; 性能</a></li>
+<li class="toc-entry toc-h2"><a href="#制定病遵循服从标准规范和最佳规范">制定病遵循服从标准、规范和最佳规范</a></li>
+<li class="toc-entry toc-h2"><a href="#重视架构扩展性可运维性">重视架构扩展性、可运维性</a></li>
+<li class="toc-entry toc-h2"><a href="#收口控制逻辑">收口控制逻辑</a></li>
+<li class="toc-entry toc-h2"><a href="#references">References</a></li>
+</ul>
+  </div>      
+  
+  <article class="post">
+    <h1>架构设计</h1>
+    
+
+<small class="small  post-meta">
+  
+  
+    
+      <span class="label  label--category"><a href="/categories/#随笔">随笔</a></span>
+    
+  &nbsp;&middot;&nbsp;<time datetime="2023-06-27T00:00:00+00:00" class="time">27 Jun 2023</time>
+</small>
+
+    
+    <div class="entry">
+      <p>一些架构设计要点</p>
+
+<hr />
+
+<h2 id="收益非技术本身">收益非技术本身</h2>
+
+<ol>
+  <li>降低技术门槛，加快开发效率</li>
+  <li>提高系统稳定性</li>
+  <li>简化、自动化，降低成本</li>
+</ol>
+
+<h2 id="以应用服务和api为视角不以资源技术为视角">以应用服务和API为视角，不以资源、技术为视角</h2>
+
+<h2 id="选择最主流成熟的技术">选择最主流、成熟的技术</h2>
+
+<ol>
+  <li>成熟、工业化的技术栈</li>
+  <li>全球流行的技术</li>
+  <li>红利大的主流技术</li>
+</ol>
+
+<h2 id="完备性--性能">完备性 &gt; 性能</h2>
+
+<ol>
+  <li>最科学、严谨的技术模型</li>
+</ol>
+
+<h2 id="制定病遵循服从标准规范和最佳规范">制定病遵循服从标准、规范和最佳规范</h2>
+
+<ol>
+  <li>服务间调用的协议标准、规范</li>
+  <li>命名的标准和规范</li>
+  <li>日志和监控的规范</li>
+  <li>配置上的规范</li>
+  <li>中间件使用的规范</li>
+  <li>软件、开发库版本统一</li>
+</ol>
+
+<h2 id="重视架构扩展性可运维性">重视架构扩展性、可运维性</h2>
+
+<ol>
+  <li>服务编排-&gt;降低服务间耦合
+    <ol>
+      <li>Workflow</li>
+      <li>Event Driven</li>
+      <li>Broker</li>
+      <li>Gateway</li>
+      <li>Service Discovery</li>
+    </ol>
+  </li>
+  <li>服务发现、服务网关，降低运维复杂度</li>
+  <li>设计原则</li>
+</ol>
+
+<h2 id="收口控制逻辑">收口控制逻辑</h2>
+
+<ol>
+  <li>流量</li>
+  <li>服务治理</li>
+  <li>监控数据</li>
+  <li>资源调度</li>
+  <li>中间件</li>
+</ol>
+
+<h2 id="references">References</h2>
+
+<ol>
+  <li>https://coolshell.cn/articles/21672.html</li>
+</ol>
+
+    </div>
+  
+    <div class="date">
+      Written on June 27, 2023
+    </div>
+  
+    
+<div class="comments">
+	<!-- <div id="disqus_thread"></div>
+	<script type="text/javascript">
+
+	    var disqus_shortname = 'sakaman';
+
+	    (function() {
+	        var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+	        dsq.src = '//' + disqus_shortname + '.disqus.com/embed.js';
+	        (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+	    })();
+
+	</script> -->
+
+	<div id="gisqus_thread"></div>
+	<script src="https://giscus.app/client.js" data-repo="sakaman/sakaman.github.io" data-repo-id="R_kgDOHMUjFQ"
+    data-category="General" data-category-id="DIC_kwDOHMUjFc4CPANy" data-mapping="pathname" data-reactions-enabled="1"
+    data-emit-metadata="0" data-input-position="top" data-theme="light" data-lang="zh-CN" data-loading="lazy"
+    crossorigin="anonymous" async>
+    </script>
+	<!-- <noscript>Please enable JavaScript to view the <a href="http://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript> -->
+	<noscript>Please enable JavaScript to view the <a href="http://gisqus.com/?ref_noscript">comments powered by Gisqus.</a></noscript>
+</div>
+
+  </article>
+
+</main>
+
+    </div>
+
+    <div class="wrapper-footer">
+      <div class="container">
+        <footer class="footer">
+          
+
+
+
+<a href="https://github.com/sakaman/sakaman.github.io"><i class="svg-icon github"></i></a>
+
+
+
+
+
+
+
+
+          <script>
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('/sw.js')
+        })
+    }
+</script>
+        </footer>
+      </div>
+    </div>
+
+    
+
+  </body>
+</html>

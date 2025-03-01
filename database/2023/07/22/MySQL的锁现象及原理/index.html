@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en-US">
+  <head>
+    <!-- General meta -->
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <title>MySQL的锁现象及原理 – Desnowy – Normal people from Zhai</title>
+
+        <meta charset="utf-8" />
+    <meta content='text/html; charset=utf-8' http-equiv='Content-Type'>
+    <meta http-equiv='X-UA-Compatible' content='IE=edge'>
+    <meta name='viewport' content='width=device-width, initial-scale=1.0, maximum-scale=1.0'>
+
+    
+    <meta name="description" content="叙述与分析MySQL的一些锁现象和原理
+
+" />
+    <meta property="og:description" content="叙述与分析MySQL的一些锁现象和原理
+
+" />
+    
+    <meta name="author" content="Desnowy" />
+
+    
+    <meta property="og:title" content="MySQL的锁现象及原理" />
+    <meta property="twitter:title" content="MySQL的锁现象及原理" />
+    
+    
+  
+    <link rel="icon" type="image/png" href="/assets/logo@16px.png" sizes="16x16">
+    <link rel="apple-touch-icon" sizes="16x16" href="/assets/logo@16px.png">
+  
+    <link rel="icon" type="image/png" href="/assets/logo@32px.png" sizes="32x32">
+    <link rel="apple-touch-icon" sizes="32x32" href="/assets/logo@32px.png">
+  
+    <link rel="icon" type="image/png" href="/assets/logo@96px.png" sizes="96x96">
+    <link rel="apple-touch-icon" sizes="96x96" href="/assets/logo@96px.png">
+  
+    <link rel="icon" type="image/png" href="/assets/logo@120px.png" sizes="120x120">
+    <link rel="apple-touch-icon" sizes="120x120" href="/assets/logo@120px.png">
+  
+    <link rel="icon" type="image/png" href="/assets/logo@144px.png" sizes="144x144">
+    <link rel="apple-touch-icon" sizes="144x144" href="/assets/logo@144px.png">
+  
+    <link rel="icon" type="image/png" href="/assets/logo@180px.png" sizes="180x180">
+    <link rel="apple-touch-icon" sizes="180x180" href="/assets/logo@180px.png">
+  
+    <link rel="icon" type="image/png" href="/assets/logo@512px.png" sizes="512x512">
+    <link rel="apple-touch-icon" sizes="512x512" href="/assets/logo@512px.png">
+  
+    <link rel="icon" type="image/png" href="/assets/logo@1024px.png" sizes="1024x1024">
+    <link rel="apple-touch-icon" sizes="1024x1024" href="/assets/logo@1024px.png">
+  
+
+<link rel="shortcut icon" href="">
+
+
+    <!--[if lt IE 9]>
+      <script src="http://html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+
+    <link rel="stylesheet" type="text/css" href="/style.css" />
+    <link rel="alternate" type="application/rss+xml" title="Desnowy - Normal people from Zhai" href="/feed.xml" />
+    <link rel="manifest" href="/manifest.json">
+
+    <!-- Created with Jekyll Now - http://github.com/barryclark/jekyll-now -->
+  </head>
+
+  <body>
+    <div class="wrapper-masthead">
+      <div class="container">
+        <header class="masthead clearfix">
+          <a href="/" class="site-avatar"><img src="/assets/logo@1024px.png" /></a>
+
+          <div class="site-info">
+            <h1 class="site-name"><a href="/">Desnowy</a></h1>
+            <p class="site-description">Normal people from Zhai</p>
+          </div>
+
+          <nav>
+            <a href="/">Blog</a>
+            <a href="/categories">Categories</a>
+            <a href="/search">Search</a>
+            <a href="/about">About</a>
+          </nav>
+        </header>
+      </div>
+    </div>
+
+    <div id="main" role="main" class="container">
+      <main class="main  container">
+  
+  <div class="toc">
+    <h2>Table of Contents</h2>
+    <ul id="toc" class="section-nav">
+<li class="toc-entry toc-h1"><a href="#锁的类别">锁的类别</a>
+<ul>
+<li class="toc-entry toc-h2"><a href="#共享锁与独占锁shared-and-exclusive-locks">共享锁与独占锁（Shared and Exclusive Locks）</a></li>
+<li class="toc-entry toc-h2"><a href="#意向锁intention-locks">意向锁（Intention Locks）</a></li>
+<li class="toc-entry toc-h2"><a href="#记录锁record-locks">记录锁（Record Locks）</a></li>
+<li class="toc-entry toc-h2"><a href="#间隙锁gap-locks">间隙锁（Gap Locks）</a></li>
+<li class="toc-entry toc-h2"><a href="#临键锁next-key-locks">临键锁（Next-Key Locks）</a></li>
+<li class="toc-entry toc-h2"><a href="#插入意向锁insert-intention-locks">插入意向锁（Insert Intention Locks）</a></li>
+<li class="toc-entry toc-h2"><a href="#auto-inc锁auto-inc-locks">AUTO-INC锁（AUTO-INC Locks）</a></li>
+</ul>
+</li>
+<li class="toc-entry toc-h1"><a href="#locking-reads">Locking Reads</a>
+<ul>
+<li class="toc-entry toc-h2"><a href="#select-for-update">SELECT FOR UPDATE</a>
+<ul>
+<li class="toc-entry toc-h3"><a href="#theory-of-select-for-update">Theory of SELECT FOR UPDATE</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toc-entry toc-h1"><a href="#innodb-data-locking">InnoDB Data Locking</a></li>
+</ul>
+  </div>      
+  
+  <article class="post">
+    <h1>MySQL的锁现象及原理</h1>
+    
+
+<small class="small  post-meta">
+  
+  
+    
+      <span class="label  label--category"><a href="/categories/#database">Database</a></span>
+    
+  &nbsp;&middot;&nbsp;<time datetime="2023-07-22T00:00:00+00:00" class="time">22 Jul 2023</time>
+</small>
+
+    
+    <div class="entry">
+      <p>叙述与分析MySQL的一些锁现象和原理</p>
+
+<h1 id="锁的类别">锁的类别</h1>
+
+<h2 id="共享锁与独占锁shared-and-exclusive-locks">共享锁与独占锁（Shared and Exclusive Locks）</h2>
+
+<p>InnoDB标准的行级锁：共享（S）锁、独占（X）锁</p>
+<ul>
+  <li>共享锁允许持有该锁的事务读取一行</li>
+  <li>独占锁允许持有该锁的事务更新或删除行</li>
+</ul>
+
+<h2 id="意向锁intention-locks">意向锁（Intention Locks）</h2>
+
+<p>InnoDB支持多粒度锁定，允许行锁和表锁共存——用意向锁实现。意向锁是<strong>表级锁</strong>，表明事务稍后需要对表中的行使用哪种类型的锁（共享、独占）。</p>
+
+<ul>
+  <li>意向共享锁（IS）表示事务试图在表中的单独行上设置共享锁。</li>
+  <li>意向排它锁（IX）表示事务试图在表中的单独行上设置排它锁。</li>
+</ul>
+
+<p><code class="language-plaintext highlighter-rouge">SELECT ... FOR SHARE</code> 设置IS锁，<code class="language-plaintext highlighter-rouge">SELECT ... FOR UPDATE</code> 设置IX锁。</p>
+
+<p>意向锁协议：</p>
+<ul>
+  <li>在事务获取表中行的共享锁之前，必须先获取表上的IS锁或者更强的锁。</li>
+  <li>在事务获取表中的排它锁之前，必须先获取表的IX锁。</li>
+</ul>
+
+<p>表级锁兼容性：</p>
+
+<table>
+  <thead>
+    <tr>
+      <th> </th>
+      <th>X</th>
+      <th>IX</th>
+      <th>S</th>
+      <th>IS</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>X</td>
+      <td>❌</td>
+      <td>❌</td>
+      <td>❌</td>
+      <td>❌</td>
+    </tr>
+    <tr>
+      <td>IX</td>
+      <td>❌</td>
+      <td>✅</td>
+      <td>❌</td>
+      <td>✅</td>
+    </tr>
+    <tr>
+      <td>S</td>
+      <td>❌</td>
+      <td>❌</td>
+      <td>✅</td>
+      <td>✅</td>
+    </tr>
+    <tr>
+      <td>IS</td>
+      <td>❌</td>
+      <td>✅</td>
+      <td>✅</td>
+      <td>✅</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="记录锁record-locks">记录锁（Record Locks）</h2>
+
+<p>记录锁是<strong>索引记录</strong>上的锁。记录锁始终锁定索引记录，即使表定义没有索引（InnoDB创建一个隐藏的聚簇索引，并使用该索引进行记录锁定）。</p>
+
+<h2 id="间隙锁gap-locks">间隙锁（Gap Locks）</h2>
+
+<p>间隙锁是对索引记录之间间隙的锁定，或者对第一个索引记录之前或者最后一个索引记录之后的锁定。间隙可能跨越单个、多个索引值，甚至空的。不同事务可以在间隙上持有冲突锁。间隙锁是纯抑制性的（防止其他事务插入间隙），可以共存。一个事务获取的间隙锁不会阻止另一事务在统一间隙上获取间隙锁。</p>
+
+<h2 id="临键锁next-key-locks">临键锁（Next-Key Locks）</h2>
+
+<p>临键锁是索引记录上的记录锁和索引记录之前的间隙上的间隙锁的组合。</p>
+
+<p>索引记录上的临键锁会影响该索引记录之前的“间隙”。如果一个会话对索引中的记录R具有共享锁或独占锁，则另一个会话无法在索引顺序中紧邻R之前的间隙中插入新索引记录。</p>
+
+<p>默认情况，InnoDB在REPEATABLE READ事务隔离级别中生效。InnoDB使用临键锁进行搜索和索引扫描，防止<strong>幻影行</strong>。</p>
+
+<h2 id="插入意向锁insert-intention-locks">插入意向锁（Insert Intention Locks）</h2>
+
+<p>插入意向锁是一种间隙锁，在行插入之前由<code class="language-plaintext highlighter-rouge">INSERT</code>设置。插入同一索引间隙的多个事务如果没有插入间隙内的同一位置，则无需互相等待。</p>
+
+<h2 id="auto-inc锁auto-inc-locks">AUTO-INC锁（AUTO-INC Locks）</h2>
+
+<p>AUTO-INC锁是一种特殊的表级锁，由插入具有<code class="language-plaintext highlighter-rouge">AUTO_INCREMENT</code>列的表的事务获取。如果一个事务正在将值插入表中，则任何其他事务必须等待才能向该表中执行自己的插入操作，以便第一个事务插入的行接收连续的主键值。</p>
+
+<p>shared mode lock: 共享模式锁</p>
+
+<h1 id="locking-reads">Locking Reads</h1>
+
+<p>https://dev.mysql.com/doc/refman/8.0/en/innodb-locking-reads.html
+https://shiroyasha.io/selecting-for-share-and-update-in-postgresql.html</p>
+
+<p>SELECT FOR SHARE（LOCK IN SHARE MODE）</p>
+
+<p>对读取的任意行设置共享模式锁，其他会话可以读取这些行，但在事务提交前，无法修改它们。并且如果其中任何一行被其它尚未提交的事务更改，查询将等待直到该事务结束，然后使用最新值。</p>
+
+<p><img src="/assets/images/2023-07/Pasted%20image%2020230722175558.png" alt="" /></p>
+<ol>
+  <li>左一会话开启事务，执行FOR SHARE语句，右二会话可以SELECT、FOR SHARE可以获取值。</li>
+  <li>左一会话在事务中更新，右二会话执行普通SELECT得到旧值，执行FOR SHARE进入等待。</li>
+  <li>左一会话提交事务后，右二返回最新值。</li>
+</ol>
+
+<p><img src="/assets/images/2023-07/Pasted%20image%2020230722172744.png" alt="" /></p>
+<ol>
+  <li>左一开启事务，执行FOR SHARE语句，右二会话执行UPDATE进入等待。</li>
+  <li>左一提交事务，右二返回，SELECT返回最新值。</li>
+</ol>
+
+<h2 id="select-for-update">SELECT FOR UPDATE</h2>
+
+<p>对于查询的所有行，锁定行和关联的索引条目，与UPDATE语句类似。其他事务将被阻止更新这些行，或者执行FOR SHARE、读取某些事务隔离级别中的数据。</p>
+
+<p><img src="/assets/images/2023-07/Pasted%20image%2020230722172123.png" alt="" /></p>
+<ol>
+  <li>左一会话开启事务，执行FOR UPDATE语句，右二会话执行普通语句可以获取值。</li>
+  <li>右二会话执行FOR SHARE/FOR UPDATE进入等待，左二提交事务后，返回值。</li>
+</ol>
+
+<p><img src="/assets/images/2023-07/Pasted%20image%2020230722172510.png" alt="" /></p>
+<ol>
+  <li>左一会话开启事务，执行FOR UPDATE语句，右二执行UPDATE进入等待。</li>
+  <li>左一提交事务后，右二返回，SELECT返回最新值。</li>
+</ol>
+
+<p>当事务提交或回滚时，FOR SHARE和FOR UPDATE设置的所有锁都回被释放。</p>
+
+<p>外部语句的锁定不会锁嵌套子查询表中的行，除非子查询也锁定读取子句。</p>
+
+<h3 id="theory-of-select-for-update">Theory of <code class="language-plaintext highlighter-rouge">SELECT FOR UPDATE</code></h3>
+
+<p>从<a href="https://dev.mysql.com/doc/refman/8.0/en/innodb-locking-reads.html#:~:text=A%20SELECT%20...%20FOR%20UPDATE%20reads%20the%20latest%20available%20data%2C%20setting%20exclusive%20locks%20on%20each%20row%20it%20reads.%20Thus%2C%20it%20sets%20the%20same%20locks%20a%20searched%20SQL%20UPDATE%20would%20set%20on%20the%20rows.">官方文档</a>上可见，<code class="language-plaintext highlighter-rouge">FOR UPDATE</code>的表现形式与<code class="language-plaintext highlighter-rouge">UPDATE</code>等效：</p>
+
+<blockquote>
+  <p>A <a href="https://dev.mysql.com/doc/refman/8.0/en/select.html" title="13.2.13 SELECT Statement"><code class="language-plaintext highlighter-rouge">SELECT ... FOR UPDATE</code></a> reads the latest available data, setting exclusive locks on each row it reads. Thus, it sets the same locks a searched SQL <a href="https://dev.mysql.com/doc/refman/8.0/en/update.html" title="13.2.17 UPDATE Statement"><code class="language-plaintext highlighter-rouge">UPDATE</code></a> would set on the rows.</p>
+
+  <p>The preceding description is merely an example of how <a href="https://dev.mysql.com/doc/refman/8.0/en/select.html" title="13.2.13 SELECT Statement"><code class="language-plaintext highlighter-rouge">SELECT ... FOR UPDATE</code></a> works. In MySQL, the specific task of generating a unique identifier actually can be accomplished using only a single access to the table:</p>
+</blockquote>
+
+<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">UPDATE</span> <span class="n">child_codes</span> <span class="k">SET</span> <span class="n">counter_field</span> <span class="o">=</span> <span class="n">LAST_INSERT_ID</span><span class="p">(</span><span class="n">counter_field</span> <span class="o">+</span> <span class="mi">1</span><span class="p">);</span>   
+<span class="k">SELECT</span> <span class="n">LAST_INSERT_ID</span><span class="p">();</span>
+</code></pre></div></div>
+
+<p>示例：</p>
+
+<p><img src="/assets/images/2023-07/Pasted%20image%2020230812170259.png" alt="" />
+对于不存在的索引列，附近行（GAP）。</p>
+
+<p><img src="/assets/images/2023-07/Pasted%20image%2020230812173007.png" alt="" />
+对于存在的索引列，会锁住当前行（RECORD）和附近行（GAP）。</p>
+
+<p><img src="/assets/images/2023-07/Pasted%20image%2020230812174155.png" alt="" />
+对于范围查询，会锁住符合条件行（RECORD）和附件行（GAP）。</p>
+
+<h1 id="innodb-data-locking">InnoDB Data Locking</h1>
+
+<p>https://dev.mysql.com/blog-archive/innodb-data-locking-part-1-introduction/
+https://dev.mysql.com/blog-archive/innodb-data-locking-part-2-locks/
+https://dev.mysql.com/blog-archive/innodb-data-locking-part-2-5-locks-deeper-dive/
+https://dev.mysql.com/blog-archive/innodb-data-locking-part-3-deadlocks/
+https://dev.mysql.com/blog-archive/innodb-data-locking-part-4-scheduling/
+https://dev.mysql.com/blog-archive/innodb-data-locking-part-5-concurrent-queues/</p>
+
+    </div>
+  
+    <div class="date">
+      Written on July 22, 2023
+    </div>
+  
+    
+<div class="comments">
+	<!-- <div id="disqus_thread"></div>
+	<script type="text/javascript">
+
+	    var disqus_shortname = 'sakaman';
+
+	    (function() {
+	        var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+	        dsq.src = '//' + disqus_shortname + '.disqus.com/embed.js';
+	        (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+	    })();
+
+	</script> -->
+
+	<div id="gisqus_thread"></div>
+	<script src="https://giscus.app/client.js" data-repo="sakaman/sakaman.github.io" data-repo-id="R_kgDOHMUjFQ"
+    data-category="General" data-category-id="DIC_kwDOHMUjFc4CPANy" data-mapping="pathname" data-reactions-enabled="1"
+    data-emit-metadata="0" data-input-position="top" data-theme="light" data-lang="zh-CN" data-loading="lazy"
+    crossorigin="anonymous" async>
+    </script>
+	<!-- <noscript>Please enable JavaScript to view the <a href="http://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript> -->
+	<noscript>Please enable JavaScript to view the <a href="http://gisqus.com/?ref_noscript">comments powered by Gisqus.</a></noscript>
+</div>
+
+  </article>
+
+</main>
+
+    </div>
+
+    <div class="wrapper-footer">
+      <div class="container">
+        <footer class="footer">
+          
+
+
+
+<a href="https://github.com/sakaman/sakaman.github.io"><i class="svg-icon github"></i></a>
+
+
+
+
+
+
+
+
+          <script>
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('/sw.js')
+        })
+    }
+</script>
+        </footer>
+      </div>
+    </div>
+
+    
+
+  </body>
+</html>

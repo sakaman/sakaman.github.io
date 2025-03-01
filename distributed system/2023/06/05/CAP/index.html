@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en-US">
+  <head>
+    <!-- General meta -->
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <title>CAP – Desnowy – Normal people from Zhai</title>
+
+        <meta charset="utf-8" />
+    <meta content='text/html; charset=utf-8' http-equiv='Content-Type'>
+    <meta http-equiv='X-UA-Compatible' content='IE=edge'>
+    <meta name='viewport' content='width=device-width, initial-scale=1.0, maximum-scale=1.0'>
+
+    
+    <meta name="description" content="CAP: Consistency, Available, Partition
+
+" />
+    <meta property="og:description" content="CAP: Consistency, Available, Partition
+
+" />
+    
+    <meta name="author" content="Desnowy" />
+
+    
+    <meta property="og:title" content="CAP" />
+    <meta property="twitter:title" content="CAP" />
+    
+    
+  
+    <link rel="icon" type="image/png" href="/assets/logo@16px.png" sizes="16x16">
+    <link rel="apple-touch-icon" sizes="16x16" href="/assets/logo@16px.png">
+  
+    <link rel="icon" type="image/png" href="/assets/logo@32px.png" sizes="32x32">
+    <link rel="apple-touch-icon" sizes="32x32" href="/assets/logo@32px.png">
+  
+    <link rel="icon" type="image/png" href="/assets/logo@96px.png" sizes="96x96">
+    <link rel="apple-touch-icon" sizes="96x96" href="/assets/logo@96px.png">
+  
+    <link rel="icon" type="image/png" href="/assets/logo@120px.png" sizes="120x120">
+    <link rel="apple-touch-icon" sizes="120x120" href="/assets/logo@120px.png">
+  
+    <link rel="icon" type="image/png" href="/assets/logo@144px.png" sizes="144x144">
+    <link rel="apple-touch-icon" sizes="144x144" href="/assets/logo@144px.png">
+  
+    <link rel="icon" type="image/png" href="/assets/logo@180px.png" sizes="180x180">
+    <link rel="apple-touch-icon" sizes="180x180" href="/assets/logo@180px.png">
+  
+    <link rel="icon" type="image/png" href="/assets/logo@512px.png" sizes="512x512">
+    <link rel="apple-touch-icon" sizes="512x512" href="/assets/logo@512px.png">
+  
+    <link rel="icon" type="image/png" href="/assets/logo@1024px.png" sizes="1024x1024">
+    <link rel="apple-touch-icon" sizes="1024x1024" href="/assets/logo@1024px.png">
+  
+
+<link rel="shortcut icon" href="">
+
+
+    <!--[if lt IE 9]>
+      <script src="http://html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+
+    <link rel="stylesheet" type="text/css" href="/style.css" />
+    <link rel="alternate" type="application/rss+xml" title="Desnowy - Normal people from Zhai" href="/feed.xml" />
+    <link rel="manifest" href="/manifest.json">
+
+    <!-- Created with Jekyll Now - http://github.com/barryclark/jekyll-now -->
+  </head>
+
+  <body>
+    <div class="wrapper-masthead">
+      <div class="container">
+        <header class="masthead clearfix">
+          <a href="/" class="site-avatar"><img src="/assets/logo@1024px.png" /></a>
+
+          <div class="site-info">
+            <h1 class="site-name"><a href="/">Desnowy</a></h1>
+            <p class="site-description">Normal people from Zhai</p>
+          </div>
+
+          <nav>
+            <a href="/">Blog</a>
+            <a href="/categories">Categories</a>
+            <a href="/search">Search</a>
+            <a href="/about">About</a>
+          </nav>
+        </header>
+      </div>
+    </div>
+
+    <div id="main" role="main" class="container">
+      <main class="main  container">
+  
+  <div class="toc">
+    <h2>Table of Contents</h2>
+    <ul id="toc" class="section-nav">
+<li class="toc-entry toc-h2"><a href="#consistency-patterns">Consistency patterns</a>
+<ul>
+<li class="toc-entry toc-h3"><a href="#weak-consistency">Weak Consistency</a></li>
+<li class="toc-entry toc-h3"><a href="#eventual-consistency">Eventual Consistency</a></li>
+<li class="toc-entry toc-h3"><a href="#strong-consistency">Strong Consistency</a></li>
+</ul>
+</li>
+<li class="toc-entry toc-h2"><a href="#consistency-model">Consistency Model</a>
+<ul>
+<li class="toc-entry toc-h3"><a href="#backups">Backups</a></li>
+<li class="toc-entry toc-h3"><a href="#masterslave-replication">Master/Slave replication</a></li>
+<li class="toc-entry toc-h3"><a href="#multi-master-replication">Multi-master replication</a></li>
+<li class="toc-entry toc-h3"><a href="#two-phase-commit">Two Phase Commit</a></li>
+<li class="toc-entry toc-h3"><a href="#paxos">Paxos</a></li>
+</ul>
+</li>
+<li class="toc-entry toc-h2"><a href="#availability-patterns">Availability Patterns</a>
+<ul>
+<li class="toc-entry toc-h3"><a href="#fail-over">Fail-over</a>
+<ul>
+<li class="toc-entry toc-h4"><a href="#active-passive">Active-passive</a></li>
+<li class="toc-entry toc-h4"><a href="#active-active">Active-active</a></li>
+</ul>
+</li>
+<li class="toc-entry toc-h3"><a href="#replication">Replication</a></li>
+</ul>
+</li>
+<li class="toc-entry toc-h2"><a href="#references">References</a></li>
+</ul>
+  </div>      
+  
+  <article class="post">
+    <h1>CAP</h1>
+    
+
+<small class="small  post-meta">
+  
+  
+    
+      <span class="label  label--category"><a href="/categories/#distributed-system">Distributed System</a></span>
+    
+  &nbsp;&middot;&nbsp;<time datetime="2023-06-05T00:00:00+00:00" class="time">05 Jun 2023</time>
+</small>
+
+    
+    <div class="entry">
+      <p>CAP: Consistency, Available, Partition</p>
+
+<h2 id="consistency-patterns">Consistency patterns</h2>
+<h3 id="weak-consistency">Weak Consistency</h3>
+<ul>
+  <li>Real time</li>
+  <li>Lost data during connection loss</li>
+</ul>
+
+<h3 id="eventual-consistency">Eventual Consistency</h3>
+<ul>
+  <li>Write =&gt; Read</li>
+  <li>Data is replicated asynchronously</li>
+  <li>In highly available systems</li>
+</ul>
+
+<h3 id="strong-consistency">Strong Consistency</h3>
+<ul>
+  <li>Data is replicated synchronously</li>
+  <li>File system &amp; RDBMS</li>
+  <li>Transactions</li>
+</ul>
+
+<h2 id="consistency-model">Consistency Model</h2>
+<h3 id="backups">Backups</h3>
+<ul>
+  <li>Make a copy</li>
+  <li>Sledgehammer</li>
+  <li>Weak consistency</li>
+  <li>Usually no transactions</li>
+  <li>Datastore: early internal launch</li>
+</ul>
+
+<h3 id="masterslave-replication">Master/Slave replication</h3>
+<ul>
+  <li>Usually asynchronous</li>
+  <li>Good for throughput, latency</li>
+  <li>Most RDBMSes
+    <ul>
+      <li>e.g. MySQL binary logs</li>
+    </ul>
+  </li>
+  <li>Weak/eventual consistency
+    <ul>
+      <li>Granularity matters!</li>
+    </ul>
+  </li>
+  <li>Datastore: current</li>
+</ul>
+
+<h3 id="multi-master-replication">Multi-master replication</h3>
+<ul>
+  <li>Umbrella term for merging concurrent writes</li>
+  <li>Asynchronous, eventual consistency</li>
+  <li>Need <em>serialization</em> protocol
+    <ul>
+      <li>e.g. <em>timestamp oracle</em>: monotonically increasing timestamps</li>
+      <li>Either SPOF with master election…</li>
+      <li>…or distributed consensus protocol</li>
+    </ul>
+  </li>
+  <li>No global transactions!</li>
+  <li>Datastore: no strong consistency</li>
+</ul>
+
+<h3 id="two-phase-commit">Two Phase Commit</h3>
+<ul>
+  <li>Semi-distributed consensus protocol
+    <ul>
+      <li>deterministic coordinator</li>
+    </ul>
+  </li>
+  <li>1: propose, 2: vote, 3: commit/abort</li>
+  <li>Heavyweight, synchronous, high latency</li>
+  <li>3PC buys async with extra round trip</li>
+  <li>Datastore: poor throughput</li>
+</ul>
+
+<h3 id="paxos">Paxos</h3>
+<ul>
+  <li>Fully distributed consensus protocol</li>
+  <li>“Either Paxos, or Paxos with cruft, or broken”
+    <ul>
+      <li>Mike Burrows</li>
+    </ul>
+  </li>
+  <li>Majority writes; survives minority failure</li>
+  <li>Protocol similar to 2PC/3PC
+    <ul>
+      <li>Lighter, but still high latency</li>
+    </ul>
+  </li>
+</ul>
+
+<p><img src="CAP.png" alt="" /></p>
+
+<h2 id="availability-patterns">Availability Patterns</h2>
+<h3 id="fail-over">Fail-over</h3>
+<h4 id="active-passive">Active-passive</h4>
+<p>With active-passive fail-over, heartbeats are sent between the active and the passive server on standby.</p>
+
+<h4 id="active-active">Active-active</h4>
+<p>Both servers are managing traffic, spreading the load between them.</p>
+
+<h3 id="replication">Replication</h3>
+<p><strong>Master-slave and master-master</strong></p>
+
+<h2 id="references">References</h2>
+<ol>
+  <li>https://www.youtube.com/watch?v=srOgpXECblk</li>
+</ol>
+
+    </div>
+  
+    <div class="date">
+      Written on June  5, 2023
+    </div>
+  
+    
+<div class="comments">
+	<!-- <div id="disqus_thread"></div>
+	<script type="text/javascript">
+
+	    var disqus_shortname = 'sakaman';
+
+	    (function() {
+	        var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+	        dsq.src = '//' + disqus_shortname + '.disqus.com/embed.js';
+	        (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+	    })();
+
+	</script> -->
+
+	<div id="gisqus_thread"></div>
+	<script src="https://giscus.app/client.js" data-repo="sakaman/sakaman.github.io" data-repo-id="R_kgDOHMUjFQ"
+    data-category="General" data-category-id="DIC_kwDOHMUjFc4CPANy" data-mapping="pathname" data-reactions-enabled="1"
+    data-emit-metadata="0" data-input-position="top" data-theme="light" data-lang="zh-CN" data-loading="lazy"
+    crossorigin="anonymous" async>
+    </script>
+	<!-- <noscript>Please enable JavaScript to view the <a href="http://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript> -->
+	<noscript>Please enable JavaScript to view the <a href="http://gisqus.com/?ref_noscript">comments powered by Gisqus.</a></noscript>
+</div>
+
+  </article>
+
+</main>
+
+    </div>
+
+    <div class="wrapper-footer">
+      <div class="container">
+        <footer class="footer">
+          
+
+
+
+<a href="https://github.com/sakaman/sakaman.github.io"><i class="svg-icon github"></i></a>
+
+
+
+
+
+
+
+
+          <script>
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('/sw.js')
+        })
+    }
+</script>
+        </footer>
+      </div>
+    </div>
+
+    
+
+  </body>
+</html>
